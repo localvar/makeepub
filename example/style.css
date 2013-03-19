@@ -1,0 +1,54 @@
+body {
+	display: block;
+	font-size: 1em;
+	line-height: 162%;
+	margin-bottom: 0;
+	margin-left: 0pt;
+	margin-right: 0pt;
+	margin-top: 0;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+
+h1, h2, h3, h4, h5, h6 {
+	text-align:center;
+}
+
+h1 {
+	font-size: 1.4em;
+}
+
+h2 {
+	font-size: 1.2em;
+}
+
+p{
+	display: block;
+	font-size: 1em;
+	margin-bottom: 1em;
+	margin-left: 0;
+	margin-right: 0;
+	margin-top: 1em;
+	text-indent: 4ex;
+}
+
+.jingwen {
+	font-family: 宋体;
+	font-size: 1.1em;
+}
+
+
+.poem {
+	font-family: 楷体;
+	text-align:center;
+	text-indent: 0
+}
+
+
+.jizi {
+	font-family: 仿宋;
+	text-align:center;
+	text-indent: 0
+	font-size: 1.1em;
+}

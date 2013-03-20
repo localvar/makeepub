@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -81,9 +80,9 @@ func NewEpub(id string) (*Epub, error) {
 	epub := new(Epub)
 	epub.Id = id
 	if len(id) == 0 {
-		u, _ := user.Current()
+		h, _ := os.Hostname()
 		t := uint32(time.Now().Unix())
-		epub.Id = fmt.Sprintf("%s-book-%08x", u.Username, t)
+		epub.Id = fmt.Sprintf("%s-book-%08x", h, t)
 	}
 	epub.files = make([]epubFile, 256)
 	epub.buf = new(bytes.Buffer)
@@ -110,8 +109,7 @@ func NewEpub(id string) (*Epub, error) {
 		"<?xml version=\"1.0\"?>\n" +
 		"<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n" +
 		"	<rootfiles>\n" +
-		"		<rootfile full-path=\"" + content_opf +
-		"\" media-type=\"application/oebps-package+xml\"/>\n" +
+		"		<rootfile full-path=\"" + content_opf + "\" media-type=\"application/oebps-package+xml\"/>\n" +
 		"	</rootfiles>\n" +
 		"</container>"))
 	if e != nil {
@@ -282,28 +280,25 @@ func (epub *Epub) generateContentOpf() error {
 	}
 
 	buf.WriteString("" +
-		"		<item href=\"" + toc_ncx +
-		"\" media-type=\"application/x-dtbncx+xml\" id=\"ncx\"/>\n" +
-		"		<item href=\"" + epub.cover +
-		"\" id=\"cover\" media-type=\"application/xhtml+xml\"/>\n" +
+		"		<item href=\"" + toc_ncx + "\" media-type=\"application/x-dtbncx+xml\" id=\"ncx\"/>\n" +
+		"		<item href=\"" + epub.cover + "\" id=\"cover\" media-type=\"application/xhtml+xml\"/>\n" +
 		"	</manifest>\n" +
 		"	<spine toc=\"ncx\">\n" +
-		"		<itemref idref=\"cover\"/>\n")
+		"		<itemref idref=\"cover\" linear=\"no\" properties=\"duokan-page-fullscreen\"/>\n")
 
 	for i := 0; i < len(epub.files); i++ {
 		ef := epub.files[i]
 		if ef.depth == 0 {
 			continue
 		}
-		s = fmt.Sprintf("		<itemref idref=\"item%04d\"/>\n", i)
+		s = fmt.Sprintf("		<itemref idref=\"item%04d\" linear=\"yes\"/>\n", i)
 		buf.WriteString(s)
 	}
 
 	buf.WriteString("" +
 		"	</spine>\n" +
 		"	<guide>\n" +
-		"		<reference href=\"" + epub.cover +
-		"\" type=\"cover\" title=\"Cover\"/>\n" +
+		"		<reference href=\"" + epub.cover + "\" type=\"cover\" title=\"Cover\"/>\n" +
 		"	</guide>\n" +
 		"</package>")
 

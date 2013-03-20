@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -43,7 +44,17 @@ func addFilesToBook(book *Epub, root string) error {
 	return filepath.Walk(root, walk)
 }
 
-func addChaptersToBook(book *Epub, root string, depth int) error {
+func checkNewChapter(l string) (depth int, title string) {
+	l = strings.TrimSpace(l)
+	pattern := "^<[hH][1-6]>[^<]*</[hH][1-6]>$"
+	if m, _ := regexp.MatchString(pattern, l); m {
+		depth = int(l[2] - '0')
+		title = l[4 : len(l)-5]
+	}
+	return
+}
+
+func addChaptersToBook(book *Epub, root string, maxDepth int) error {
 	f, e := os.Open(filepath.Join(root, "book.html"))
 	if e != nil {
 		return e
@@ -65,37 +76,30 @@ func addChaptersToBook(book *Epub, root string, depth int) error {
 	}
 
 	buf := new(bytes.Buffer)
-	title := ""
-	d := 0
+	depth, title := 1, ""
 	for {
 		s, _, e := br.ReadLine()
 		if e == io.EOF {
 			break
 		}
 		l := string(s)
-		if l[0] == '<' && (l[1] == 'h' || l[1] == 'H') && l[3] == '>' {
-			nd := int(l[2] - '0')
-			if nd > 0 && nd <= depth {
-				if buf.Len() > 0 {
-					buf.WriteString("	</body>\n</html>")
-					if e = book.AddChapter(title, buf.Bytes(), d); e != nil {
-						return e
-					}
+		if nd, nt := checkNewChapter(l); nd > 0 && nd <= maxDepth {
+			if buf.Len() > 0 {
+				buf.WriteString("	</body>\n</html>")
+				if e = book.AddChapter(title, buf.Bytes(), depth); e != nil {
+					return e
 				}
-				d = nd
-				title = l[4:strings.LastIndex(l, "<")]
 				buf.Reset()
-				buf.WriteString(header)
 			}
+			depth, title = nd, nt
+			buf.WriteString(header)
 		}
 
 		buf.WriteString(l + "\n")
 	}
 
 	if buf.Len() > 0 {
-		if e = book.AddChapter(title, buf.Bytes(), d); e != nil {
-			return e
-		}
+		e = book.AddChapter(title, buf.Bytes(), depth)
 	}
 
 	return nil

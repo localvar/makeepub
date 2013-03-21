@@ -12,6 +12,11 @@ import (
 	"strings"
 )
 
+var (
+	reHeader = regexp.MustCompile("^[ \t]*<[hH]([1-6])[^>]+>([^<]*)</[hH]([1-6])>[ \t]*$")
+	reBody   = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
+)
+
 func setCoverPage(book *Epub, root string) error {
 	path := filepath.Join(root, "cover.html")
 	data, e := ioutil.ReadFile(path)
@@ -45,11 +50,9 @@ func addFilesToBook(book *Epub, root string) error {
 }
 
 func checkNewChapter(l string) (depth int, title string) {
-	l = strings.TrimSpace(l)
-	pattern := "^<[hH][1-6]>[^<]*</[hH][1-6]>$"
-	if m, _ := regexp.MatchString(pattern, l); m {
-		depth = int(l[2] - '0')
-		title = l[4 : len(l)-5]
+	if m := reHeader.FindStringSubmatch(l); m != nil && m[1] == m[3] {
+		depth = int(m[1][0] - '0')
+		title = m[2]
 	}
 	return
 }
@@ -70,7 +73,7 @@ func addChaptersToBook(book *Epub, root string, maxDepth int) error {
 		}
 		l := string(s)
 		header += l + "\n"
-		if strings.ToLower(strings.TrimSpace(l)) == "<body>" {
+		if reBody.MatchString(l) {
 			break
 		}
 	}

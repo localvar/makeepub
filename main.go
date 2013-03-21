@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var (
@@ -114,6 +115,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	start := time.Now()
+
 	ini, e := Open(filepath.Join(os.Args[1], "book.ini"))
 	if e != nil {
 		fmt.Println("Error: failed to open 'book.ini'")
@@ -170,6 +173,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("Done.")
+	fmt.Println("Done, time used:", time.Now().Sub(start).String())
 	os.Exit(0)
 }

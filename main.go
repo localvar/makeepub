@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	reHeader = regexp.MustCompile("^[ \t]*<[hH]([1-6])[^>]+>([^<]*)</[hH]([1-6])>[ \t]*$")
+	reHeader = regexp.MustCompile("^[ \t]*<[hH]([1-6])[^>]*>([^<]*)</[hH]([1-6])>[ \t]*$")
 	reBody   = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
 )
 

@@ -1,6 +1,6 @@
 #MakeEpub
 
-此工具用于将*html*文件转换为*epub*格式。它根据html文件中的*\<h1\>*，*\<h2\>*等标签，将其拆分为章节，并自动生成目录等信息。
+此工具用于将 *html* 文件转换为 *epub* 格式。它根据html文件中的 *\<h1\>*，*\<h2\>* 等标签，将其拆分为章节，并自动生成目录等信息。
 
 This tool helps to convert *html* file to *epub* format. It split the html file into chapters by the tags *\<h1\>*, *\<h2\>* ..., and generate the TOC automatically.
 
@@ -8,13 +8,13 @@ This tool helps to convert *html* file to *epub* format. It split the html file 
 
 	makeepub folder [output]
 
-其中*folder*是一个文件夹，包含要转换的html文件及其它文件。*output*用于指定目标epub文件的路径，此参数可选。
+其中 *folder* 是一个文件夹，包含要转换的html文件及其它文件。 *output* 用于指定目标epub文件的路径，此参数可选。
 
 *folder* is used to store the html file and other files that need to convert. *output* is the path of the target epub file, and it is optional.
 
 ##2. 源文件(Source Files)
 
-所有源文件都要放在命令行参数中指定的*folder*文件夹中，以下三个源文件是必须的：
+所有源文件都要放在命令行参数中指定的 *folder* 文件夹中，以下三个源文件是必须的：
 
 All source files must be put into the *folder* in the command line argument, and below 3 files are mandatory:
 
@@ -22,11 +22,11 @@ All source files must be put into the *folder* in the command line argument, and
 + **book.html** 书的正文(The content of the book)
 + **cover.html** 封面(The cover of the book)
 
-请**务必**使用*UTF-8*编码保存这三个文件，否则程序可能不能正确处理。
+请 **务必** 使用 *UTF-8* 编码保存这三个文件，否则程序可能不能正确处理。
 
 The 3 files **MUST** stored in *UTF-8* encoding, otherwise, the tool may not able to process them correctly.
 
-除以上文件外，其它书籍需要的文件，如层叠样式表（css），图片等也应保存到此文件夹中。如果文件内容是文本，建议也使用*UTF-8*编码保存。
+除以上文件外，其它书籍需要的文件，如层叠样式表（css），图片等也应保存到此文件夹中。如果文件内容是文本，建议也使用 *UTF-8* 编码保存。
 
 Besides the 3 files above, other files required by the book, like sytle sheet (css) and images, are 
 also required to be put into the folder. And if the content of a file is text, it is also recommend to store it in *UTF-8* encoding.
@@ -43,7 +43,7 @@ Here is a brief introduction of the format of the mandatory files, more informat
 
 This file is based on the common *INI* file format, blank characters are not allowed at the beginning of a line, and line start with '#' will be regard as comment and ignored.
 
-这个文件包含两个节，*book*和*output*，book节指定书籍信息，output节指定输出文件信息。下面的列表将介绍其中每一个选项的作用。
+这个文件包含两个节，*book* 和 *output*，book节指定书籍信息，output节指定输出文件信息。下面的列表将介绍其中每一个选项的作用。
 
 This file contains two sections: *book* and *output*. section *book* is for the book information, while section *output* is for the output file. The below list explains the usage of each option.
 
@@ -51,10 +51,10 @@ This file contains two sections: *book* and *output*. section *book* is for the 
 	- **name**: 书名，如果没有提供会导致程序输出一个警告信息(Name of the book, if not specified, the tool will generate a warning)
 	- **author**:  作者，如果没有提供会导致程序输出一个警告信息(Author of the book, if not specified, the tool will generate a warning)
 	- **id**: 书的唯一标识，在正规出版的书中，它应该是ISBN编号，如果您没有指定，程序将随机生成一个(The unique identifier, it is the ISBN for a published book. If not specified, the tool will generate a random string for it.)
-	- **depth**: 一个*1*到*6*之间的整数，用于指定章节拆分的粒度，默认为*1*，即只根据*h1*标签拆分章节(An integer between *1* and *6*, specifis how to split the html file into chapters. Default value is *1*, which means the split is based on the *h1* tags)
+	- **depth**: 一个 *1* 到 *6* 之间的整数，用于指定章节拆分的粒度，默认为 *1*，即只根据 *h1* 标签拆分章节(An integer between *1* and *6*, specifis how to split the html file into chapters. Default value is *1*, which means the split is based on the *h1* tags)
 	
 + Output节(Section Output)
-	- **path**: 输出epub文件的路径。如果命令行中有*output*参数，这个选项会被忽略。如果这里和命令行都没有指定输出路径，程序会产生一个警告(The output path of the target epub file. If the *output* argument exists in the command line, this option will be ignored. If the path hasn't been specified either in the command line nor here, the tool will generate a warning) 
+	- **path**: 输出epub文件的路径。如果命令行中有 *output* 参数，这个选项会被忽略。如果这里和命令行都没有指定输出路径，程序会产生一个警告(The output path of the target epub file. If the *output* argument exists in the command line, this option will be ignored. If the path hasn't been specified either in the command line nor here, the tool will generate a warning) 
 
 下面是book.ini的一个例子。
 
@@ -79,7 +79,7 @@ This is a standard html file, but the 2 points below must be followed:
 + \<body\>标签必须独占一行 (The \<body\> tag must be in its own line)
 + “\<h1\>...\</h1\>”等标题必须独占一行(Headers like "\<h1\>...\</h1\>" must be in their own lines)
 
-根据*depth*设置，程序会将此文件拆分成章节文件，\<body\>标签之前的内容会被复制到每个章节文件的开头。
+根据 *depth* 设置，程序会将此文件拆分成章节文件，\<body\>标签之前的内容会被复制到每个章节文件的开头。
 
 According to the *depth* setting, the tool will split this file into chapter files, the content before \<body\> tag will be copied to the beginning of each chapter file.
 

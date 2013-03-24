@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
 	"bytes"
 	"fmt"
@@ -13,21 +14,32 @@ import (
 	"time"
 )
 
-var (
-	reHeader = regexp.MustCompile("^[ \t]*<[hH]([1-6])[^>]*>([^<]*)</[hH]([1-6])>[ \t]*$")
-	reBody   = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
-)
+////////////////////////////////////////////////////////////////////////////////
 
-func setCoverPage(book *Epub, root string) error {
-	path := filepath.Join(root, "cover.html")
-	data, e := ioutil.ReadFile(path)
-	if e == nil {
-		book.SetCoverPage("cover.html", data)
-	}
-	return e
+type TraverseFunc func(path string) error
+
+type FileProvider interface {
+	OpenFile(path string) (io.ReadCloser, error)
+	Traverse(traverseFn TraverseFunc) error
 }
 
-func addFilesToBook(book *Epub, root string) error {
+////////////////////////////////////////////////////////////////////////////////
+
+type FolderSource struct {
+	base string
+}
+
+func NewFolderSource(base string) *FolderSource {
+	fs := new(FolderSource)
+	fs.base = base
+	return fs
+}
+
+func (fs *FolderSource) OpenFile(path string) (io.ReadCloser, error) {
+	return os.Open(filepath.Join(fs.base, path))
+}
+
+func (fs *FolderSource) Traverse(traverseFn TraverseFunc) error {
 	walk := func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -35,19 +47,93 @@ func addFilesToBook(book *Epub, root string) error {
 		if info.IsDir() {
 			return nil
 		}
-		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			return err
+		path, _ = filepath.Rel(fs.base, path)
+		return traverseFn(path)
+	}
+
+	return filepath.Walk(fs.base, walk)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type ZipSource struct {
+	rc *zip.ReadCloser
+}
+
+func NewZipSource(path string) (*ZipSource, error) {
+	rc, e := zip.OpenReader(path)
+	if e != nil {
+		return nil, e
+	}
+	zs := new(ZipSource)
+	zs.rc = rc
+	return zs, nil
+}
+
+func (zs *ZipSource) Close() {
+	zs.rc.Close()
+}
+
+func (zs *ZipSource) OpenFile(path string) (io.ReadCloser, error) {
+	for _, f := range zs.rc.File {
+		if strings.ToLower(f.Name) == path {
+			return f.Open()
 		}
-		path, _ = filepath.Rel(root, path)
-		path = strings.ToLower(filepath.ToSlash(path))
-		if path == "book.ini" || path == "book.html" || path == "cover.html" {
+	}
+	return nil, os.ErrNotExist
+}
+
+func (zs *ZipSource) Traverse(traverseFn TraverseFunc) error {
+	for _, f := range zs.rc.File {
+		if e := traverseFn(f.Name); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////	
+
+var (
+	reHeader = regexp.MustCompile("^[ \t]*<[hH]([1-6])[^>]*>([^<]*)</[hH]([1-6])>[ \t]*$")
+	reBody   = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
+)
+
+func setCoverPage(book *Epub, fp FileProvider) error {
+	f, e := fp.OpenFile("cover.html")
+	if e != nil {
+		return e
+	}
+	defer f.Close()
+
+	if data, e := ioutil.ReadAll(f); e == nil {
+		book.SetCoverPage("cover.html", data)
+	}
+
+	return e
+}
+
+func addFilesToBook(book *Epub, fp FileProvider) error {
+	traverse := func(path string) error {
+		p := strings.ToLower(path)
+		if p == "book.ini" || p == "book.html" || p == "cover.html" {
 			return nil
 		}
+
+		rc, e := fp.OpenFile(path)
+		if e != nil {
+			return e
+		}
+		defer rc.Close()
+		data, e := ioutil.ReadAll(rc)
+		if e != nil {
+			return e
+		}
+
 		return book.AddFile(path, data)
 	}
 
-	return filepath.Walk(root, walk)
+	return fp.Traverse(traverse)
 }
 
 func checkNewChapter(l string) (depth int, title string) {
@@ -58,8 +144,8 @@ func checkNewChapter(l string) (depth int, title string) {
 	return
 }
 
-func addChaptersToBook(book *Epub, root string, maxDepth int) error {
-	f, e := os.Open(filepath.Join(root, "book.html"))
+func addChaptersToBook(book *Epub, fp FileProvider, maxDepth int) error {
+	f, e := fp.OpenFile("book.html")
 	if e != nil {
 		return e
 	}
@@ -109,67 +195,112 @@ func addChaptersToBook(book *Epub, root string, maxDepth int) error {
 	return nil
 }
 
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: makeepub folder [output]")
-		os.Exit(1)
+func loadConfig(fp FileProvider) (*Config, error) {
+	rc, e := fp.OpenFile("book.ini")
+	if e != nil {
+		return nil, e
 	}
+	defer rc.Close()
+	return ParseIni(rc)
+}
 
-	start := time.Now()
-
-	ini, e := Open(filepath.Join(os.Args[1], "book.ini"))
+func generateBook(fp FileProvider) error {
+	cfg, e := loadConfig(fp)
 	if e != nil {
 		fmt.Println("Error: failed to open 'book.ini'")
-		os.Exit(1)
+		return e
 	}
 
-	s := ini.GetString("book", "id", "")
+	s := cfg.GetString("/book/id", "")
 	book, e := NewEpub(s)
 	if e != nil {
 		fmt.Println("Error: failed to create epub book.")
-		os.Exit(1)
+		return e
 	}
 
-	s = ini.GetString("book", "name", "")
+	s = cfg.GetString("/book/name", "")
 	if len(s) == 0 {
 		fmt.Println("Warning: book name is empty.")
 	}
 	book.SetName(s)
 
-	s = ini.GetString("book", "author", "")
+	s = cfg.GetString("/book/author", "")
 	if len(s) == 0 {
 		fmt.Println("Warning: author name is empty.")
 	}
 	book.SetAuthor(s)
 
-	if setCoverPage(book, os.Args[1]) != nil {
+	if e = setCoverPage(book, fp); e != nil {
 		fmt.Println("Error: failed to set cover page.")
-		os.Exit(1)
+		return e
 	}
 
-	if addFilesToBook(book, os.Args[1]) != nil {
+	if e = addFilesToBook(book, fp); e != nil {
 		fmt.Println("Error: failed to add files to book.")
-		os.Exit(1)
+		return e
 	}
 
-	depth := ini.GetInt("book", "depth", 1)
+	depth := cfg.GetInt("/book/depth", 1)
 	if depth < 1 || depth > book.MaxDepth() {
 		fmt.Println("Warning: invalid 'depth' value, reset to '1'")
 		depth = 1
 	}
-	if addChaptersToBook(book, os.Args[1], depth) != nil {
+	if e = addChaptersToBook(book, fp, depth); e != nil {
 		fmt.Println("Error: failed to add chapters to book.")
-		os.Exit(1)
+		return e
 	}
 
-	s = ini.GetString("output", "path", "")
+	s = cfg.GetString("/output/path", "")
 	if len(os.Args) >= 3 {
 		s = os.Args[2]
 	}
 	if len(s) == 0 {
 		fmt.Println("Warning: output path has not set.")
-	} else if book.Save(s) != nil {
-		fmt.Println("Error: failed to create output file: ", e.Error())
+	} else if e = book.Save(s); e != nil {
+		fmt.Println("Error: failed to create output file.")
+		return e
+	}
+
+	return nil
+}
+
+func isDir(name string) (bool, error) {
+	stat, e := os.Stat(name)
+	if e != nil {
+		return false, e
+	}
+	return stat.IsDir(), nil
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage:\tmakeepub folder [output]\n\tmakeepub zipfile [output]")
+		os.Exit(1)
+	}
+
+	start := time.Now()
+
+	isdir, e := isDir(os.Args[1])
+	if e != nil {
+		fmt.Println("Error: failed to get source folder/file information.")
+		os.Exit(1)
+	}
+
+	if isdir {
+		fs := NewFolderSource(os.Args[1])
+		e = generateBook(fs)
+	} else {
+		zs, err := NewZipSource(os.Args[1])
+		if err == nil {
+			defer zs.Close()
+			e = generateBook(zs)
+		} else {
+			fmt.Println("Error: failed to open source zip file.")
+			e = err
+		}
+	}
+
+	if e != nil {
 		os.Exit(1)
 	}
 

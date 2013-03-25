@@ -16,30 +16,31 @@ import (
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type TraverseFunc func(path string) error
+type FxWalk func(path string) error
 
-type FileProvider interface {
+type IFileRepo interface {
 	OpenFile(path string) (io.ReadCloser, error)
-	Traverse(traverseFn TraverseFunc) error
+	Walk(fnWalk FxWalk) error
+	Close()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type FolderSource struct {
+type FileRepo struct {
 	base string
 }
 
-func NewFolderSource(base string) *FolderSource {
-	fs := new(FolderSource)
+func NewFileRepo(base string) *FileRepo {
+	fs := new(FileRepo)
 	fs.base = base
 	return fs
 }
 
-func (fs *FolderSource) OpenFile(path string) (io.ReadCloser, error) {
+func (fs *FileRepo) OpenFile(path string) (io.ReadCloser, error) {
 	return os.Open(filepath.Join(fs.base, path))
 }
 
-func (fs *FolderSource) Traverse(traverseFn TraverseFunc) error {
+func (fs *FileRepo) Walk(fnWalk FxWalk) error {
 	walk := func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -48,33 +49,36 @@ func (fs *FolderSource) Traverse(traverseFn TraverseFunc) error {
 			return nil
 		}
 		path, _ = filepath.Rel(fs.base, path)
-		return traverseFn(path)
+		return fnWalk(path)
 	}
 
 	return filepath.Walk(fs.base, walk)
 }
 
+func (fs *FileRepo) Close() {
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
-type ZipSource struct {
+type ZipFileRepo struct {
 	rc *zip.ReadCloser
 }
 
-func NewZipSource(path string) (*ZipSource, error) {
+func NewZipFileRepo(path string) (*ZipFileRepo, error) {
 	rc, e := zip.OpenReader(path)
 	if e != nil {
 		return nil, e
 	}
-	zs := new(ZipSource)
+	zs := new(ZipFileRepo)
 	zs.rc = rc
 	return zs, nil
 }
 
-func (zs *ZipSource) Close() {
+func (zs *ZipFileRepo) Close() {
 	zs.rc.Close()
 }
 
-func (zs *ZipSource) OpenFile(path string) (io.ReadCloser, error) {
+func (zs *ZipFileRepo) OpenFile(path string) (io.ReadCloser, error) {
 	for _, f := range zs.rc.File {
 		if strings.ToLower(f.Name) == path {
 			return f.Open()
@@ -83,9 +87,9 @@ func (zs *ZipSource) OpenFile(path string) (io.ReadCloser, error) {
 	return nil, os.ErrNotExist
 }
 
-func (zs *ZipSource) Traverse(traverseFn TraverseFunc) error {
+func (zs *ZipFileRepo) Walk(fnWalk FxWalk) error {
 	for _, f := range zs.rc.File {
-		if e := traverseFn(f.Name); e != nil {
+		if e := fnWalk(f.Name); e != nil {
 			return e
 		}
 	}
@@ -99,8 +103,8 @@ var (
 	reBody   = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
 )
 
-func setCoverPage(book *Epub, fp FileProvider) error {
-	f, e := fp.OpenFile("cover.html")
+func setCoverPage(book *Epub, fr IFileRepo) error {
+	f, e := fr.OpenFile("cover.html")
 	if e != nil {
 		return e
 	}
@@ -113,14 +117,14 @@ func setCoverPage(book *Epub, fp FileProvider) error {
 	return e
 }
 
-func addFilesToBook(book *Epub, fp FileProvider) error {
-	traverse := func(path string) error {
+func addFilesToBook(book *Epub, fr IFileRepo) error {
+	walk := func(path string) error {
 		p := strings.ToLower(path)
 		if p == "book.ini" || p == "book.html" || p == "cover.html" {
 			return nil
 		}
 
-		rc, e := fp.OpenFile(path)
+		rc, e := fr.OpenFile(path)
 		if e != nil {
 			return e
 		}
@@ -133,7 +137,7 @@ func addFilesToBook(book *Epub, fp FileProvider) error {
 		return book.AddFile(path, data)
 	}
 
-	return fp.Traverse(traverse)
+	return fr.Walk(walk)
 }
 
 func checkNewChapter(l string) (depth int, title string) {
@@ -144,8 +148,8 @@ func checkNewChapter(l string) (depth int, title string) {
 	return
 }
 
-func addChaptersToBook(book *Epub, fp FileProvider, maxDepth int) error {
-	f, e := fp.OpenFile("book.html")
+func addChaptersToBook(book *Epub, fr IFileRepo, maxDepth int) error {
+	f, e := fr.OpenFile("book.html")
 	if e != nil {
 		return e
 	}
@@ -195,8 +199,8 @@ func addChaptersToBook(book *Epub, fp FileProvider, maxDepth int) error {
 	return nil
 }
 
-func loadConfig(fp FileProvider) (*Config, error) {
-	rc, e := fp.OpenFile("book.ini")
+func loadConfig(fr IFileRepo) (*Config, error) {
+	rc, e := fr.OpenFile("book.ini")
 	if e != nil {
 		return nil, e
 	}
@@ -204,8 +208,8 @@ func loadConfig(fp FileProvider) (*Config, error) {
 	return ParseIni(rc)
 }
 
-func generateBook(fp FileProvider) error {
-	cfg, e := loadConfig(fp)
+func generateBook(fr IFileRepo) error {
+	cfg, e := loadConfig(fr)
 	if e != nil {
 		fmt.Println("Error: failed to open 'book.ini'")
 		return e
@@ -230,12 +234,12 @@ func generateBook(fp FileProvider) error {
 	}
 	book.SetAuthor(s)
 
-	if e = setCoverPage(book, fp); e != nil {
+	if e = setCoverPage(book, fr); e != nil {
 		fmt.Println("Error: failed to set cover page.")
 		return e
 	}
 
-	if e = addFilesToBook(book, fp); e != nil {
+	if e = addFilesToBook(book, fr); e != nil {
 		fmt.Println("Error: failed to add files to book.")
 		return e
 	}
@@ -245,7 +249,7 @@ func generateBook(fp FileProvider) error {
 		fmt.Println("Warning: invalid 'depth' value, reset to '1'")
 		depth = 1
 	}
-	if e = addChaptersToBook(book, fp, depth); e != nil {
+	if e = addChaptersToBook(book, fr, depth); e != nil {
 		fmt.Println("Error: failed to add chapters to book.")
 		return e
 	}
@@ -264,43 +268,36 @@ func generateBook(fp FileProvider) error {
 	return nil
 }
 
-func isDir(name string) (bool, error) {
-	stat, e := os.Stat(name)
+func createFileRepo(path string) (IFileRepo, error) {
+	stat, e := os.Stat(path)
 	if e != nil {
-		return false, e
+		return nil, e
 	}
-	return stat.IsDir(), nil
+
+	if stat.IsDir() {
+		return NewFileRepo(path), nil
+	}
+
+	return NewZipFileRepo(path)
 }
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage:\tmakeepub folder [output]\n\tmakeepub zipfile [output]")
+		fmt.Println("Usage: makeepub folder  [output]")
+		fmt.Println("       makeepub zipfile [output]")
 		os.Exit(1)
 	}
 
 	start := time.Now()
 
-	isdir, e := isDir(os.Args[1])
+	fr, e := createFileRepo(os.Args[1])
 	if e != nil {
-		fmt.Println("Error: failed to get source folder/file information.")
+		fmt.Println("Error: failed to open source folder/file.")
 		os.Exit(1)
 	}
+	defer fr.Close()
 
-	if isdir {
-		fs := NewFolderSource(os.Args[1])
-		e = generateBook(fs)
-	} else {
-		zs, err := NewZipSource(os.Args[1])
-		if err == nil {
-			defer zs.Close()
-			e = generateBook(zs)
-		} else {
-			fmt.Println("Error: failed to open source zip file.")
-			e = err
-		}
-	}
-
-	if e != nil {
+	if e = generateBook(fr); e != nil {
 		os.Exit(1)
 	}
 

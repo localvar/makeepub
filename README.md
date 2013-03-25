@@ -1,6 +1,6 @@
 #MakeEpub
 
-此工具用于将 *html* 文件转换为 *epub* 格式。它根据html文件中的 *\<h1\>*，*\<h2\>* 等标签，将其拆分为章节，并自动生成目录等信息。
+此工具用于将 *html* 文件转换为 *epub* 格式。它根据html文件中的 *\<h1\>*， *\<h2\>* 等标签，将其拆分为章节，并自动生成目录等信息。
 
 This tool helps to convert *html* file to *epub* format. It split the html file into chapters by the tags *\<h1\>*, *\<h2\>* ..., and generate the TOC automatically.
 
@@ -43,7 +43,7 @@ Here is a brief introduction of the format of the mandatory files, more informat
 
 This file is based on the common *INI* file format, blank characters are not allowed at the beginning of a line, and line start with '#' will be regard as comment and ignored.
 
-这个文件包含两个节，*book* 和 *output*，book节指定书籍信息，output节指定输出文件信息。下面的列表将介绍其中每一个选项的作用。
+这个文件包含两个节， *book* 和 *output*，book节指定书籍信息，output节指定输出文件信息。下面的列表将介绍其中每一个选项的作用。
 
 This file contains two sections: *book* and *output*. section *book* is for the book information, while section *output* is for the output file. The below list explains the usage of each option.
 

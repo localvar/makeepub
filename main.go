@@ -45,6 +45,8 @@ func main() {
 	switch os.Args[1] {
 	case "-b", "-B", "/b", "/B":
 		RunBatch()
+	case "-e", "-E", "/e", "/E":
+		RunExtract()
 	case "-h", "-H", "/h", "/H", "-?":
 		showUsage()
 	default:

@@ -22,8 +22,10 @@ func getBinaryName() string {
 
 func showUsage() {
 	bn := getBinaryName()
-	fmt.Printf("Usage: %s <folder>  [output]\n", bn)
-	fmt.Printf("       %s <zip> [output]\n", bn)
+	fmt.Printf("Usage: %s <input_folder>  [output_folder]\n", bn)
+	fmt.Printf("       %s <zip> [output_folder]\n", bn)
+	fmt.Printf("       %s <epub> <output_folder>\n", bn)
+	fmt.Printf("       %s <input_folder> <output_file>", bn)
 	fmt.Printf("       %s <-? | -h | -H>\n", bn)
 	os.Exit(0)
 }
@@ -49,6 +51,8 @@ func main() {
 		RunExtract()
 	case "-h", "-H", "/h", "/H", "-?":
 		showUsage()
+	case "-m", "-M", "/m", "/M":
+		RunMerge()
 	default:
 		RunMake()
 	}

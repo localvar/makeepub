@@ -24,8 +24,8 @@ func RunExtract() {
 	for _, zf := range zrc.File {
 		path := filepath.Join(os.Args[3], zf.Name)
 
+		// skip folders, if it is not empty, will be created during file creation
 		if zf.FileInfo().IsDir() {
-			os.MkdirAll(path, os.ModeDir|0666)
 			continue
 		}
 

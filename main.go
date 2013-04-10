@@ -53,6 +53,8 @@ func main() {
 		showUsage()
 	case "-m", "-M", "/m", "/M":
 		RunMerge()
+	case "-p", "-P", "/p", "/P":
+		RunPack()
 	default:
 		RunMake()
 	}

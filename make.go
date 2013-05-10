@@ -17,8 +17,8 @@ var (
 	reBody   = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
 )
 
-func setCoverPage(book *Epub, repo IFileRepo) error {
-	f, e := repo.OpenFile("cover.html")
+func setCoverPage(book *Epub, folder InputFolder) error {
+	f, e := folder.OpenFile("cover.html")
 	if e != nil {
 		return e
 	}
@@ -31,14 +31,14 @@ func setCoverPage(book *Epub, repo IFileRepo) error {
 	return e
 }
 
-func addFilesToBook(book *Epub, repo IFileRepo) error {
+func addFilesToBook(book *Epub, folder InputFolder) error {
 	walk := func(path string) error {
 		p := strings.ToLower(path)
 		if p == "book.ini" || p == "book.html" || p == "cover.html" {
 			return nil
 		}
 
-		rc, e := repo.OpenFile(path)
+		rc, e := folder.OpenFile(path)
 		if e != nil {
 			return e
 		}
@@ -51,7 +51,7 @@ func addFilesToBook(book *Epub, repo IFileRepo) error {
 		return book.AddFile(path, data)
 	}
 
-	return repo.Walk(walk)
+	return folder.Walk(walk)
 }
 
 func checkNewChapter(l string) (depth int, title string) {
@@ -62,8 +62,8 @@ func checkNewChapter(l string) (depth int, title string) {
 	return
 }
 
-func addChaptersToBook(book *Epub, repo IFileRepo, maxDepth int) error {
-	f, e := repo.OpenFile("book.html")
+func addChaptersToBook(book *Epub, folder InputFolder, maxDepth int) error {
+	f, e := folder.OpenFile("book.html")
 	if e != nil {
 		return e
 	}
@@ -113,8 +113,8 @@ func addChaptersToBook(book *Epub, repo IFileRepo, maxDepth int) error {
 	return nil
 }
 
-func loadConfig(repo IFileRepo) (*Config, error) {
-	rc, e := repo.OpenFile("book.ini")
+func loadConfig(folder InputFolder) (*Config, error) {
+	rc, e := folder.OpenFile("book.ini")
 	if e != nil {
 		return nil, e
 	}
@@ -123,14 +123,14 @@ func loadConfig(repo IFileRepo) (*Config, error) {
 }
 
 func MakeBook(input string, outdir string) error {
-	repo, e := CreateFileRepo(input)
+	folder, e := OpenInputFolder(input)
 	if e != nil {
 		log.Printf("%s: failed to open source folder/file.\n", input)
 		return e
 	}
-	defer repo.Close()
+	defer folder.Close()
 
-	cfg, e := loadConfig(repo)
+	cfg, e := loadConfig(folder)
 	if e != nil {
 		log.Printf("%s: failed to open 'book.ini'.\n", input)
 		return e
@@ -157,12 +157,12 @@ func MakeBook(input string, outdir string) error {
 	}
 	book.SetAuthor(s)
 
-	if e = setCoverPage(book, repo); e != nil {
+	if e = setCoverPage(book, folder); e != nil {
 		log.Printf("%s: failed to set cover page.\n", input)
 		return e
 	}
 
-	if e = addFilesToBook(book, repo); e != nil {
+	if e = addFilesToBook(book, folder); e != nil {
 		log.Printf("%s: failed to add files to book.\n", input)
 		return e
 	}
@@ -172,7 +172,7 @@ func MakeBook(input string, outdir string) error {
 		log.Printf("%s: invalid 'depth' value, reset to '1'.\n", input)
 		depth = 1
 	}
-	if e = addChaptersToBook(book, repo, depth); e != nil {
+	if e = addChaptersToBook(book, folder, depth); e != nil {
 		log.Printf("%s: failed to add chapters to book.\n", input)
 		return e
 	}

@@ -12,7 +12,7 @@ import (
 
 type FxWalk func(path string) error
 
-type IFileRepo interface {
+type InputFolder interface {
 	OpenFile(path string) (io.ReadCloser, error)
 	Walk(fnWalk FxWalk) error
 	Name() string
@@ -21,25 +21,25 @@ type IFileRepo interface {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type FileRepo struct {
+type SystemFolder struct {
 	base string
 }
 
-func NewFileRepo(path string) *FileRepo {
-	repo := new(FileRepo)
-	repo.base = path
-	return repo
+func OpenSystemFolder(path string) *SystemFolder {
+	folder := new(SystemFolder)
+	folder.base = path
+	return folder
 }
 
-func (repo *FileRepo) Name() string {
-	return repo.base
+func (folder *SystemFolder) Name() string {
+	return folder.base
 }
 
-func (repo *FileRepo) OpenFile(path string) (io.ReadCloser, error) {
-	return os.Open(filepath.Join(repo.base, path))
+func (folder *SystemFolder) OpenFile(path string) (io.ReadCloser, error) {
+	return os.Open(filepath.Join(folder.base, path))
 }
 
-func (repo *FileRepo) Walk(fnWalk FxWalk) error {
+func (folder *SystemFolder) Walk(fnWalk FxWalk) error {
 	walk := func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -47,44 +47,44 @@ func (repo *FileRepo) Walk(fnWalk FxWalk) error {
 		if info.IsDir() {
 			return nil
 		}
-		path, _ = filepath.Rel(repo.base, path)
+		path, _ = filepath.Rel(folder.base, path)
 		return fnWalk(path)
 	}
 
-	return filepath.Walk(repo.base, walk)
+	return filepath.Walk(folder.base, walk)
 }
 
-func (repo *FileRepo) Close() {
+func (folder *SystemFolder) Close() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type ZipFileRepo struct {
+type ZipFolder struct {
 	path string
 	zrc  *zip.ReadCloser
 }
 
-func NewZipFileRepo(path string) (*ZipFileRepo, error) {
+func OpenZipFolder(path string) (*ZipFolder, error) {
 	rc, e := zip.OpenReader(path)
 	if e != nil {
 		return nil, e
 	}
-	repo := new(ZipFileRepo)
-	repo.zrc = rc
-	repo.path = path
-	return repo, nil
+	folder := new(ZipFolder)
+	folder.zrc = rc
+	folder.path = path
+	return folder, nil
 }
 
-func (repo *ZipFileRepo) Name() string {
-	return repo.path
+func (folder *ZipFolder) Name() string {
+	return folder.path
 }
 
-func (repo *ZipFileRepo) Close() {
-	repo.zrc.Close()
+func (folder *ZipFolder) Close() {
+	folder.zrc.Close()
 }
 
-func (repo *ZipFileRepo) OpenFile(path string) (io.ReadCloser, error) {
-	for _, f := range repo.zrc.File {
+func (folder *ZipFolder) OpenFile(path string) (io.ReadCloser, error) {
+	for _, f := range folder.zrc.File {
 		if strings.ToLower(f.Name) == path {
 			return f.Open()
 		}
@@ -92,8 +92,8 @@ func (repo *ZipFileRepo) OpenFile(path string) (io.ReadCloser, error) {
 	return nil, os.ErrNotExist
 }
 
-func (repo *ZipFileRepo) Walk(fnWalk FxWalk) error {
-	for _, f := range repo.zrc.File {
+func (folder *ZipFolder) Walk(fnWalk FxWalk) error {
+	for _, f := range folder.zrc.File {
 		if e := fnWalk(f.Name); e != nil {
 			return e
 		}
@@ -103,17 +103,17 @@ func (repo *ZipFileRepo) Walk(fnWalk FxWalk) error {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func CreateFileRepo(path string) (IFileRepo, error) {
+func OpenInputFolder(path string) (InputFolder, error) {
 	stat, e := os.Stat(path)
 	if e != nil {
 		return nil, e
 	}
 
 	if stat.IsDir() {
-		return NewFileRepo(path), nil
+		return OpenSystemFolder(path), nil
 	}
 
-	return NewZipFileRepo(path)
+	return OpenZipFolder(path)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

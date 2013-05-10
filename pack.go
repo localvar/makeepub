@@ -7,15 +7,15 @@ import (
 )
 
 func packFiles(book *Epub, input string) error {
-	repo, e := CreateFileRepo(input)
+	folder, e := OpenInputFolder(input)
 	if e != nil {
 		log.Println("failed to open source folder/file.\n")
 		return e
 	}
-	defer repo.Close()
+	defer folder.Close()
 
 	walk := func(path string) error {
-		rc, e := repo.OpenFile(path)
+		rc, e := folder.OpenFile(path)
 		if e != nil {
 			log.Println("failed to open file: ", path)
 			return e
@@ -34,7 +34,7 @@ func packFiles(book *Epub, input string) error {
 		return e
 	}
 
-	return repo.Walk(walk)
+	return folder.Walk(walk)
 }
 
 func RunPack() {

@@ -136,12 +136,14 @@ func MakeBook(input string, outdir string) error {
 		return e
 	}
 
-	s := cfg.GetString("/book/id", "")
-	book, e := NewEpub(s)
+	book, e := NewEpub(false)
 	if e != nil {
 		log.Printf("%s: failed to create epub book.\n", input)
 		return e
 	}
+
+	s := cfg.GetString("/book/id", "")
+	book.SetId(s)
 
 	s = cfg.GetString("/book/name", "")
 	if len(s) == 0 {

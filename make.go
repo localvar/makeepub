@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -68,29 +67,24 @@ func addChaptersToBook(book *Epub, folder InputFolder, maxDepth int) error {
 		return e
 	}
 	defer f.Close()
-	br := bufio.NewReader(f)
+	scanner := bufio.NewScanner(f)
 
 	header := ""
-	for {
-		s, _, e := br.ReadLine()
-		if e != nil {
-			return e
-		}
-		l := string(s)
+	for scanner.Scan() {
+		l := scanner.Text()
 		header += l + "\n"
 		if reBody.MatchString(l) {
 			break
 		}
 	}
+	if e = scanner.Err(); e != nil {
+		return e
+	}
 
 	buf := new(bytes.Buffer)
 	depth, title := 1, ""
-	for {
-		s, _, e := br.ReadLine()
-		if e == io.EOF {
-			break
-		}
-		l := string(s)
+	for scanner.Scan() {
+		l := scanner.Text()
 		if nd, nt := checkNewChapter(l); nd > 0 && nd <= maxDepth {
 			if buf.Len() > 0 {
 				buf.WriteString("	</body>\n</html>")
@@ -104,6 +98,9 @@ func addChaptersToBook(book *Epub, folder InputFolder, maxDepth int) error {
 		}
 
 		buf.WriteString(l + "\n")
+	}
+	if e = scanner.Err(); e != nil {
+		return e
 	}
 
 	if buf.Len() > 0 {

@@ -23,16 +23,9 @@ func ParseIni(reader io.Reader) (*Config, error) {
 	section := "/"
 	cfg := &Config{data: make(map[string]string)}
 
-	for br := bufio.NewReader(reader); ; {
-		line, _, e := br.ReadLine()
-		if e != nil {
-			if e == io.EOF {
-				break
-			}
-			return nil, e
-		}
-
-		s := string(line)
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		s := scanner.Text()
 		if reComment.MatchString(s) {
 			continue
 		}
@@ -46,6 +39,10 @@ func ParseIni(reader io.Reader) (*Config, error) {
 			k := strings.ToLower(section + "/" + m[1])
 			cfg.data[k] = m[2]
 		}
+	}
+
+	if e := scanner.Err(); e != nil {
+		return nil, e
 	}
 
 	return cfg, nil

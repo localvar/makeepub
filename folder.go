@@ -15,7 +15,7 @@ type FxWalk func(path string) error
 type InputFolder interface {
 	OpenFile(path string) (io.ReadCloser, error)
 	Walk(fnWalk FxWalk) error
-	Name() string
+	ReadDirNames() ([]string, error)
 	Close()
 }
 
@@ -26,13 +26,7 @@ type SystemFolder struct {
 }
 
 func OpenSystemFolder(path string) *SystemFolder {
-	folder := new(SystemFolder)
-	folder.base = path
-	return folder
-}
-
-func (folder *SystemFolder) Name() string {
-	return folder.base
+	return &SystemFolder{base: path}
 }
 
 func (folder *SystemFolder) OpenFile(path string) (io.ReadCloser, error) {
@@ -54,14 +48,22 @@ func (folder *SystemFolder) Walk(fnWalk FxWalk) error {
 	return filepath.Walk(folder.base, walk)
 }
 
+func (folder *SystemFolder) ReadDirNames() ([]string, error) {
+	f, e := os.Open(folder.base)
+	if e != nil {
+		return nil, e
+	}
+	defer f.Close()
+	return f.Readdirnames(-1)
+}
+
 func (folder *SystemFolder) Close() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type ZipFolder struct {
-	path string
-	zrc  *zip.ReadCloser
+	zrc *zip.ReadCloser
 }
 
 func OpenZipFolder(path string) (*ZipFolder, error) {
@@ -69,14 +71,7 @@ func OpenZipFolder(path string) (*ZipFolder, error) {
 	if e != nil {
 		return nil, e
 	}
-	folder := new(ZipFolder)
-	folder.zrc = rc
-	folder.path = path
-	return folder, nil
-}
-
-func (folder *ZipFolder) Name() string {
-	return folder.path
+	return &ZipFolder{zrc: rc}, nil
 }
 
 func (folder *ZipFolder) Close() {
@@ -99,6 +94,14 @@ func (folder *ZipFolder) Walk(fnWalk FxWalk) error {
 		}
 	}
 	return nil
+}
+
+func (folder *ZipFolder) ReadDirNames() ([]string, error) {
+	names := make([]string, len(folder.zrc.File))
+	for i, f := range folder.zrc.File {
+		names[i] = f.Name
+	}
+	return names, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

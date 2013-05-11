@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -26,20 +25,10 @@ func runTask(input string, outdir string) {
 	chTaskResult <- tr
 }
 
-func processBatchFile(f *os.File, outdir string) (int, error) {
-	count := 0
-	br := bufio.NewReader(f)
-	for {
-		l, _, e := br.ReadLine()
-		if e != nil {
-			if e != io.EOF {
-				log.Println("error reading batch file.")
-				return count, e
-			}
-			break
-		}
-
-		n := strings.TrimSpace(string(l))
+func processBatchFile(f *os.File, outdir string) (count int, e error) {
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		n := strings.TrimSpace(scanner.Text())
 		if len(n) == 0 {
 			continue
 		}
@@ -48,7 +37,11 @@ func processBatchFile(f *os.File, outdir string) (int, error) {
 		count++
 	}
 
-	return count, nil
+	if e = scanner.Err(); e != nil {
+		log.Println("error reading batch file.")
+	}
+
+	return
 }
 
 func processBatchFolder(f *os.File, outdir string) (int, error) {

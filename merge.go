@@ -62,7 +62,6 @@ func RunMerge() {
 	if e != nil {
 		log.Fatalln("failed to open input folder.")
 	}
-	defer folder.Close()
 
 	names, e := folder.ReadDirNames()
 	if e != nil {

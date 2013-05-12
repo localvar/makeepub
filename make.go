@@ -125,7 +125,6 @@ func MakeBook(input string, outdir string) error {
 		log.Printf("%s: failed to open source folder/file.\n", input)
 		return e
 	}
-	defer folder.Close()
 
 	cfg, e := loadConfig(folder)
 	if e != nil {

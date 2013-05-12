@@ -12,7 +12,6 @@ func packFiles(book *Epub, input string) error {
 		log.Println("failed to open source folder/file.\n")
 		return e
 	}
-	defer folder.Close()
 
 	walk := func(path string) error {
 		rc, e := folder.OpenFile(path)

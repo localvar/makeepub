@@ -2,7 +2,9 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,24 +18,23 @@ type InputFolder interface {
 	OpenFile(path string) (io.ReadCloser, error)
 	Walk(fnWalk FxWalk) error
 	ReadDirNames() ([]string, error)
-	Close()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type SystemFolder struct {
-	base string
+	path string
 }
 
 func OpenSystemFolder(path string) *SystemFolder {
-	return &SystemFolder{base: path}
+	return &SystemFolder{path: path}
 }
 
-func (folder *SystemFolder) OpenFile(path string) (io.ReadCloser, error) {
-	return os.Open(filepath.Join(folder.base, path))
+func (this *SystemFolder) OpenFile(path string) (io.ReadCloser, error) {
+	return os.Open(filepath.Join(this.path, path))
 }
 
-func (folder *SystemFolder) Walk(fnWalk FxWalk) error {
+func (this *SystemFolder) Walk(fnWalk FxWalk) error {
 	walk := func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -41,15 +42,15 @@ func (folder *SystemFolder) Walk(fnWalk FxWalk) error {
 		if info.IsDir() {
 			return nil
 		}
-		path, _ = filepath.Rel(folder.base, path)
+		path, _ = filepath.Rel(this.path, path)
 		return fnWalk(path)
 	}
 
-	return filepath.Walk(folder.base, walk)
+	return filepath.Walk(this.path, walk)
 }
 
-func (folder *SystemFolder) ReadDirNames() ([]string, error) {
-	f, e := os.Open(folder.base)
+func (this *SystemFolder) ReadDirNames() ([]string, error) {
+	f, e := os.Open(this.path)
 	if e != nil {
 		return nil, e
 	}
@@ -57,29 +58,31 @@ func (folder *SystemFolder) ReadDirNames() ([]string, error) {
 	return f.Readdirnames(-1)
 }
 
-func (folder *SystemFolder) Close() {
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type ZipFolder struct {
-	zrc *zip.ReadCloser
+	zr *zip.Reader
+}
+
+func NewZipFolder(data []byte) (*ZipFolder, error) {
+	r := bytes.NewReader(data)
+	if zr, e := zip.NewReader(r, int64(len(data))); e != nil {
+		return nil, e
+	} else {
+		return &ZipFolder{zr: zr}, nil
+	}
 }
 
 func OpenZipFolder(path string) (*ZipFolder, error) {
-	rc, e := zip.OpenReader(path)
-	if e != nil {
+	if data, e := ioutil.ReadFile(path); e != nil {
 		return nil, e
+	} else {
+		return NewZipFolder(data)
 	}
-	return &ZipFolder{zrc: rc}, nil
 }
 
-func (folder *ZipFolder) Close() {
-	folder.zrc.Close()
-}
-
-func (folder *ZipFolder) OpenFile(path string) (io.ReadCloser, error) {
-	for _, f := range folder.zrc.File {
+func (this *ZipFolder) OpenFile(path string) (io.ReadCloser, error) {
+	for _, f := range this.zr.File {
 		if strings.ToLower(f.Name) == path {
 			return f.Open()
 		}
@@ -87,8 +90,8 @@ func (folder *ZipFolder) OpenFile(path string) (io.ReadCloser, error) {
 	return nil, os.ErrNotExist
 }
 
-func (folder *ZipFolder) Walk(fnWalk FxWalk) error {
-	for _, f := range folder.zrc.File {
+func (this *ZipFolder) Walk(fnWalk FxWalk) error {
+	for _, f := range this.zr.File {
 		if e := fnWalk(f.Name); e != nil {
 			return e
 		}
@@ -96,9 +99,9 @@ func (folder *ZipFolder) Walk(fnWalk FxWalk) error {
 	return nil
 }
 
-func (folder *ZipFolder) ReadDirNames() ([]string, error) {
-	names := make([]string, len(folder.zrc.File))
-	for i, f := range folder.zrc.File {
+func (this *ZipFolder) ReadDirNames() ([]string, error) {
+	names := make([]string, len(this.zr.File))
+	for i, f := range this.zr.File {
 		names[i] = f.Name
 	}
 	return names, nil

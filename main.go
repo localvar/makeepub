@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -44,16 +45,16 @@ func main() {
 
 	start := time.Now()
 
-	switch os.Args[1] {
-	case "-b", "-B", "/b", "/B":
+	switch strings.ToLower(os.Args[1]) {
+	case "-b", "/b":
 		RunBatch()
-	case "-e", "-E", "/e", "/E":
+	case "-e", "/e":
 		RunExtract()
-	case "-h", "-H", "/h", "/H", "-?":
+	case "-h", "/h", "-?":
 		showUsage()
-	case "-m", "-M", "/m", "/M":
+	case "-mh", "/mh", "-mt", "/mt":
 		RunMerge()
-	case "-p", "-P", "/p", "/P":
+	case "-p", "/p":
 		RunPack()
 	default:
 		RunMake()

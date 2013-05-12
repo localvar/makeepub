@@ -69,10 +69,11 @@ func addChaptersToBook(book *Epub, folder InputFolder, maxDepth int) error {
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
 
-	header := ""
+	buf := new(bytes.Buffer)
 	for scanner.Scan() {
 		l := scanner.Text()
-		header += l + "\n"
+		buf.WriteString(l)
+		buf.WriteString("\n")
 		if reBody.MatchString(l) {
 			break
 		}
@@ -81,7 +82,9 @@ func addChaptersToBook(book *Epub, folder InputFolder, maxDepth int) error {
 		return e
 	}
 
-	buf := new(bytes.Buffer)
+	header := string(buf.Bytes())
+	buf.Reset()
+
 	depth, title := 1, ""
 	for scanner.Scan() {
 		l := scanner.Text()
@@ -97,7 +100,8 @@ func addChaptersToBook(book *Epub, folder InputFolder, maxDepth int) error {
 			buf.WriteString(header)
 		}
 
-		buf.WriteString(l + "\n")
+		buf.WriteString(l)
+		buf.WriteString("\n")
 	}
 	if e = scanner.Err(); e != nil {
 		return e
@@ -182,7 +186,7 @@ func MakeBook(input string, outdir string) error {
 		_, s = filepath.Split(s)
 		s = filepath.Join(outdir, s)
 	}
-	if e = book.Save(s); e != nil {
+	if e = book.CloseAndSave(s); e != nil {
 		log.Printf("%s: failed to create output file.\n", input)
 		return e
 	}

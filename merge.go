@@ -10,7 +10,7 @@ import (
 	"sort"
 )
 
-func mergeFiles(folder InputFolder, names []string) []byte {
+func mergeHtml(folder InputFolder, names []string) []byte {
 	var (
 		reBodyStart = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
 		reBodyEnd   = regexp.MustCompile("^[ \t]*</(?i)body(?-i)>[ \t]*$")
@@ -27,7 +27,8 @@ func mergeFiles(folder InputFolder, names []string) []byte {
 		for scanner.Scan() {
 			l := scanner.Text()
 			if i == 0 {
-				buf.WriteString(l + "\n")
+				buf.WriteString(l)
+				buf.WriteString("\n")
 			}
 			if reBodyStart.MatchString(l) {
 				break
@@ -42,7 +43,8 @@ func mergeFiles(folder InputFolder, names []string) []byte {
 			if reBodyEnd.MatchString(l) {
 				break
 			}
-			buf.WriteString(l + "\n")
+			buf.WriteString(l)
+			buf.WriteString("\n")
 		}
 		if scanner.Err() != nil {
 			log.Fatalf("error reading '%s'.\n", name)
@@ -52,6 +54,30 @@ func mergeFiles(folder InputFolder, names []string) []byte {
 	}
 
 	buf.WriteString("</body>\n</html>")
+	return buf.Bytes()
+}
+
+func mergeText(folder InputFolder, names []string) []byte {
+	buf := new(bytes.Buffer)
+
+	for _, name := range names {
+		f, e := folder.OpenFile(name)
+		if e != nil {
+			log.Fatalf("error reading '%s'.\n", name)
+		}
+
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			buf.WriteString(scanner.Text())
+			buf.WriteString("\n")
+		}
+		if scanner.Err() != nil {
+			log.Fatalf("error reading '%s'.\n", name)
+		}
+
+		f.Close()
+	}
+
 	return buf.Bytes()
 }
 
@@ -75,7 +101,13 @@ func RunMerge() {
 
 	sort.Strings(names)
 
-	data := mergeFiles(folder, names)
+	var data []byte
+	if os.Args[1][2] == 'h' || os.Args[1][2] == 'H' {
+		data = mergeHtml(folder, names)
+	} else {
+		data = mergeText(folder, names)
+	}
+
 	if e = ioutil.WriteFile(os.Args[3], data, 0666); e != nil {
 		log.Fatalln("failed to write to output file.\n")
 	}

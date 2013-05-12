@@ -46,7 +46,7 @@ func getMediaType(path string) string {
 	return mt
 }
 
-type epubFile struct {
+type FileInfo struct {
 	path  string
 	title string
 	depth int
@@ -59,42 +59,42 @@ type Epub struct {
 	cover    string
 	maxDepth int
 	depth    [6]int
-	files    []epubFile
+	files    []FileInfo
 	buf      *bytes.Buffer
 	zip      *zip.Writer
 	packOnly bool
 }
 
-func (epub *Epub) SetName(name string) {
-	epub.Name = name
+func (this *Epub) SetName(name string) {
+	this.Name = name
 }
 
-func (epub *Epub) SetAuthor(author string) {
-	epub.Author = author
+func (this *Epub) SetAuthor(author string) {
+	this.Author = author
 }
 
-func (epub *Epub) SetId(id string) {
+func (this *Epub) SetId(id string) {
 	if len(id) == 0 {
 		h, _ := os.Hostname()
 		t := uint32(time.Now().Unix())
 		id = fmt.Sprintf("%s-book-%08x", h, t)
 	}
-	epub.id = id
+	this.id = id
 }
 
-func (epub *Epub) Id() string {
-	if len(epub.id) == 0 {
-		epub.SetId("")
+func (this *Epub) Id() string {
+	if len(this.id) == 0 {
+		this.SetId("")
 	}
-	return epub.id
+	return this.id
 }
 
-func (epub *Epub) MaxDepth() int {
-	return len(epub.depth)
+func (this *Epub) MaxDepth() int {
+	return len(this.depth)
 }
 
-func (epub *Epub) addFileToZip(path string, data []byte) error {
-	w, e := epub.zip.Create(path)
+func (this *Epub) addFileToZip(path string, data []byte) error {
+	w, e := this.zip.Create(path)
 	if e == nil {
 		_, e = w.Write(data)
 	}
@@ -102,17 +102,17 @@ func (epub *Epub) addFileToZip(path string, data []byte) error {
 }
 
 func NewEpub(packOnly bool) (*Epub, error) {
-	epub := new(Epub)
-	epub.files = make([]epubFile, 256)
-	epub.buf = new(bytes.Buffer)
-	epub.zip = zip.NewWriter(epub.buf)
-	epub.packOnly = packOnly
+	this := new(Epub)
+	this.files = make([]FileInfo, 256)
+	this.buf = new(bytes.Buffer)
+	this.zip = zip.NewWriter(this.buf)
+	this.packOnly = packOnly
 
 	header := &zip.FileHeader{
 		Name:   mimetype,
 		Method: zip.Store,
 	}
-	w, e := epub.zip.CreateHeader(header)
+	w, e := this.zip.CreateHeader(header)
 	if e != nil {
 		return nil, e
 	}
@@ -122,7 +122,7 @@ func NewEpub(packOnly bool) (*Epub, error) {
 	}
 
 	if packOnly {
-		return epub, nil
+		return this, nil
 	}
 
 	data := []byte("" +
@@ -133,66 +133,66 @@ func NewEpub(packOnly bool) (*Epub, error) {
 		"	</rootfiles>\n" +
 		"</container>")
 
-	if e = epub.addFileToZip(meta_inf, data); e != nil {
+	if e = this.addFileToZip(meta_inf, data); e != nil {
 		return nil, e
 	}
 
-	return epub, nil
+	return this, nil
 }
 
-func (epub *Epub) AddFile(path string, data []byte) (e error) {
+func (this *Epub) AddFile(path string, data []byte) (e error) {
 	lp := strings.ToLower(path)
 	if lp == mimetype {
 		return nil
 	}
 
-	if (!epub.packOnly) &&
+	if (!this.packOnly) &&
 		(lp == toc_ncx || lp == content_opf || lp == strings.ToLower(meta_inf)) {
 		return nil
 	}
 
-	if e = epub.addFileToZip(path, data); e == nil {
-		epub.files = append(epub.files, epubFile{path: path})
+	if e = this.addFileToZip(path, data); e == nil {
+		this.files = append(this.files, FileInfo{path: path})
 	}
 
 	return e
 }
 
-func (epub *Epub) updateDepth(depth int) {
-	epub.depth[depth-1]++
-	if epub.maxDepth < depth {
-		epub.maxDepth = depth
+func (this *Epub) updateDepth(depth int) {
+	this.depth[depth-1]++
+	if this.maxDepth < depth {
+		this.maxDepth = depth
 	}
-	for ; depth < len(epub.depth); depth++ {
-		epub.depth[depth] = 0
+	for ; depth < len(this.depth); depth++ {
+		this.depth[depth] = 0
 	}
 }
 
-func (epub *Epub) AddChapter(title string, data []byte, depth int) error {
-	epub.updateDepth(depth)
+func (this *Epub) AddChapter(title string, data []byte, depth int) error {
+	this.updateDepth(depth)
 	path := ""
 	for i := 0; i < depth; i++ {
-		path += fmt.Sprintf("%02d.", epub.depth[i]-1)
+		path += fmt.Sprintf("%02d.", this.depth[i]-1)
 	}
 	path += "html"
 
-	e := epub.addFileToZip(path, data)
+	e := this.addFileToZip(path, data)
 	if e == nil {
-		ef := epubFile{path: path, title: title, depth: depth}
-		epub.files = append(epub.files, ef)
+		ef := FileInfo{path: path, title: title, depth: depth}
+		this.files = append(this.files, ef)
 	}
 
 	return e
 }
 
-func (epub *Epub) SetCoverPage(path string, data []byte) (e error) {
-	if e = epub.addFileToZip(path, data); e == nil {
-		epub.cover = path
+func (this *Epub) SetCoverPage(path string, data []byte) (e error) {
+	if e = this.addFileToZip(path, data); e == nil {
+		this.cover = path
 	}
 	return nil
 }
 
-func (epub *Epub) generateTocNcx() error {
+func (this *Epub) generateTocNcx() error {
 	buf := new(bytes.Buffer)
 	s := fmt.Sprintf(""+
 		"<?xml version='1.0' encoding='utf-8'?>\n"+
@@ -207,15 +207,15 @@ func (epub *Epub) generateTocNcx() error {
 		"		<text>%s</text>\n"+
 		"	</docTitle>\n"+
 		"	<navMap>\n",
-		epub.Id(),
-		epub.maxDepth,
-		epub.Name,
+		this.Id(),
+		this.maxDepth,
+		this.Name,
 	)
 	buf.WriteString(s)
 
 	depth, playorder := 0, 1
-	for index := 0; index < len(epub.files); index++ {
-		ef := epub.files[index]
+	for index := 0; index < len(this.files); index++ {
+		ef := this.files[index]
 		if ef.depth == 0 {
 			continue
 		}
@@ -254,10 +254,10 @@ func (epub *Epub) generateTocNcx() error {
 
 	buf.WriteString("	</navMap>\n</ncx>")
 
-	return epub.addFileToZip(toc_ncx, buf.Bytes())
+	return this.addFileToZip(toc_ncx, buf.Bytes())
 }
 
-func (epub *Epub) generateContentOpf() error {
+func (this *Epub) generateContentOpf() error {
 	buf := new(bytes.Buffer)
 	s := fmt.Sprintf(""+
 		"<?xml version='1.0' encoding='utf-8'?>\n"+
@@ -271,15 +271,15 @@ func (epub *Epub) generateContentOpf() error {
 		"		<dc:identifier id=\"uuid_id\">%s</dc:identifier>\n"+
 		"	</metadata>\n"+
 		"	<manifest>\n",
-		epub.Author,
+		this.Author,
 		time.Now().Format(time.RFC3339),
-		epub.Name,
-		epub.Id(),
+		this.Name,
+		this.Id(),
 	)
 	buf.WriteString(s)
 
-	for i := 0; i < len(epub.files); i++ {
-		ef := epub.files[i]
+	for i := 0; i < len(this.files); i++ {
+		ef := this.files[i]
 		s = fmt.Sprintf(""+
 			"		<item href=\"%s\" id=\"item%04d\" media-type=\"%s\"/>\n",
 			ef.path,
@@ -291,13 +291,13 @@ func (epub *Epub) generateContentOpf() error {
 
 	buf.WriteString("" +
 		"		<item href=\"" + toc_ncx + "\" media-type=\"application/x-dtbncx+xml\" id=\"ncx\"/>\n" +
-		"		<item href=\"" + epub.cover + "\" id=\"cover\" media-type=\"application/xhtml+xml\"/>\n" +
+		"		<item href=\"" + this.cover + "\" id=\"cover\" media-type=\"application/xhtml+xml\"/>\n" +
 		"	</manifest>\n" +
 		"	<spine toc=\"ncx\">\n" +
 		"		<itemref idref=\"cover\" linear=\"no\" properties=\"duokan-page-fullscreen\"/>\n")
 
-	for i := 0; i < len(epub.files); i++ {
-		ef := epub.files[i]
+	for i := 0; i < len(this.files); i++ {
+		ef := this.files[i]
 		if ef.depth == 0 {
 			continue
 		}
@@ -308,29 +308,43 @@ func (epub *Epub) generateContentOpf() error {
 	buf.WriteString("" +
 		"	</spine>\n" +
 		"	<guide>\n" +
-		"		<reference href=\"" + epub.cover + "\" type=\"cover\" title=\"Cover\"/>\n" +
+		"		<reference href=\"" + this.cover + "\" type=\"cover\" title=\"Cover\"/>\n" +
 		"	</guide>\n" +
 		"</package>")
 
-	return epub.addFileToZip(content_opf, buf.Bytes())
+	return this.addFileToZip(content_opf, buf.Bytes())
 }
 
-func (epub *Epub) Save(path string) error {
-	if !epub.packOnly {
-		if e := epub.generateTocNcx(); e != nil {
+func (this *Epub) Close() error {
+	if !this.packOnly {
+		if e := this.generateTocNcx(); e != nil {
 			return e
 		}
-		if e := epub.generateContentOpf(); e != nil {
+		if e := this.generateContentOpf(); e != nil {
 			return e
 		}
 	}
+	return this.zip.Close()
+}
 
-	epub.zip.Close()
-	f, e := os.Create(path)
-	if e != nil {
+func (this *Epub) Buffer() []byte {
+	return this.buf.Bytes()
+}
+
+func (this *Epub) Save(path string) error {
+	if f, e := os.Create(path); e != nil {
+		return e
+	} else {
+		_, e = f.Write(this.Buffer())
+		f.Close()
 		return e
 	}
-	defer f.Close()
-	_, e = f.Write(epub.buf.Bytes())
-	return e
+}
+
+func (this *Epub) CloseAndSave(path string) error {
+	if e := this.Close(); e != nil {
+		return e
+	} else {
+		return this.Save(path)
+	}
 }

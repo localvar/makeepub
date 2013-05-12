@@ -48,7 +48,7 @@ func RunPack() {
 		os.Exit(1)
 	}
 
-	if book.Save(os.Args[3]) != nil {
+	if book.CloseAndSave(os.Args[3]) != nil {
 		log.Fatalln("failed to create output file: ", os.Args[3])
 	}
 }

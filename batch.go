@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -21,7 +20,12 @@ var (
 func runTask(input string, outdir string) {
 	tr := new(taskResult)
 	tr.input = input
-	tr.e = MakeBook(input, outdir)
+
+	em := NewEpubMaker(nil)
+	if tr.e = em.RunPhisical(input); tr.e == nil {
+		tr.e = em.SaveTo(outdir)
+	}
+
 	chTaskResult <- tr
 }
 
@@ -38,7 +42,7 @@ func processBatchFile(f *os.File, outdir string) (count int, e error) {
 	}
 
 	if e = scanner.Err(); e != nil {
-		log.Println("error reading batch file.")
+		logger.Println("error reading batch file.")
 	}
 
 	return
@@ -47,7 +51,7 @@ func processBatchFile(f *os.File, outdir string) (count int, e error) {
 func processBatchFolder(f *os.File, outdir string) (int, error) {
 	names, e := f.Readdirnames(-1)
 	if e != nil {
-		log.Println("error reading source folder.")
+		logger.Println("error reading source folder.")
 		return 0, e
 	}
 
@@ -75,7 +79,7 @@ func RunBatch() {
 
 	f, e := os.Open(os.Args[2])
 	if e != nil {
-		log.Fatalf("failed to open '%s'.\n", os.Args[2])
+		logger.Fatalf("failed to open '%s'.\n", os.Args[2])
 	}
 	defer f.Close()
 
@@ -106,5 +110,5 @@ func RunBatch() {
 		}
 	}
 
-	log.Printf("total: %d   succeeded: %d    failed: %d\n", count, count-failed, failed)
+	logger.Printf("total: %d   succeeded: %d    failed: %d\n", count, count-failed, failed)
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"archive/zip"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -13,12 +12,12 @@ func RunExtract() {
 
 	zrc, e := zip.OpenReader(os.Args[2])
 	if e != nil {
-		log.Fatalln("failed to open input file.")
+		logger.Fatalln("failed to open input file.")
 	}
 	defer zrc.Close()
 
 	if e = os.MkdirAll(os.Args[3], os.ModeDir|0666); e != nil {
-		log.Fatalln("failed to create output folder.")
+		logger.Fatalln("failed to create output folder.")
 	}
 
 	for _, zf := range zrc.File {
@@ -35,14 +34,14 @@ func RunExtract() {
 
 		rc, e := zf.Open()
 		if e != nil {
-			log.Printf("failed to open '%s'.\n", zf.Name)
+			logger.Printf("failed to open '%s'.\n", zf.Name)
 			continue
 		}
 
 		if f, e := os.Create(path); e != nil {
-			log.Printf("failed to create output file '%s'.", zf.Name)
+			logger.Printf("failed to create output file '%s'.", zf.Name)
 		} else if _, e = io.Copy(f, rc); e != nil {
-			log.Printf("error writing data to '%s'.\n", zf.Name)
+			logger.Printf("error writing data to '%s'.\n", zf.Name)
 		} else {
 			f.Close()
 		}

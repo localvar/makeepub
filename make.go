@@ -16,28 +16,58 @@ var (
 	reBody   = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
 )
 
-func setCoverPage(book *Epub, folder InputFolder) error {
-	f, e := folder.OpenFile("cover.html")
+func checkNewChapter(l string) (depth int, title string) {
+	if m := reHeader.FindStringSubmatch(l); m != nil && m[1] == m[3] {
+		depth = int(m[1][0] - '0')
+		title = m[2]
+	}
+	return
+}
+
+type EpubMaker struct {
+	folder InputFolder
+	book   *Epub
+	logger *log.Logger
+	cfg    *Config
+}
+
+func NewEpubMaker(logger *log.Logger) *EpubMaker {
+	return &EpubMaker{logger: logger}
+}
+
+func (this *EpubMaker) loadConfig() error {
+	rc, e := this.folder.OpenFile("book.ini")
+	if e != nil {
+		return e
+	}
+	defer rc.Close()
+	this.cfg, e = ParseIni(rc)
+	return e
+}
+
+func (this *EpubMaker) setCoverPage() error {
+	f, e := this.folder.OpenFile("cover.html")
 	if e != nil {
 		return e
 	}
 	defer f.Close()
 
-	if data, e := ioutil.ReadAll(f); e == nil {
-		book.SetCoverPage("cover.html", data)
+	data, e := ioutil.ReadAll(f)
+	if e == nil {
+		e = this.book.SetCoverPage("cover.html", data)
 	}
 
 	return e
 }
 
-func addFilesToBook(book *Epub, folder InputFolder) error {
+func (this *EpubMaker) addFilesToBook() error {
 	walk := func(path string) error {
 		p := strings.ToLower(path)
 		if p == "book.ini" || p == "book.html" || p == "cover.html" {
 			return nil
 		}
 
-		rc, e := folder.OpenFile(path)
+		rc, e := this.folder.OpenFile(path)
 		if e != nil {
 			return e
 		}
@@ -47,29 +77,15 @@ func addFilesToBook(book *Epub, folder InputFolder) error {
 			return e
 		}
 
-		return book.AddFile(path, data)
+		return this.book.AddFile(path, data)
 	}
 
-	return folder.Walk(walk)
+	return this.folder.Walk(walk)
 }
 
-func checkNewChapter(l string) (depth int, title string) {
-	if m := reHeader.FindStringSubmatch(l); m != nil && m[1] == m[3] {
-		depth = int(m[1][0] - '0')
-		title = m[2]
-	}
-	return
-}
-
-func addChaptersToBook(book *Epub, folder InputFolder, maxDepth int) error {
-	f, e := folder.OpenFile("book.html")
-	if e != nil {
-		return e
-	}
-	defer f.Close()
-	scanner := bufio.NewScanner(f)
-
+func getChapterHeader(scanner *bufio.Scanner) (string, error) {
 	buf := new(bytes.Buffer)
+
 	for scanner.Scan() {
 		l := scanner.Text()
 		buf.WriteString(l)
@@ -78,20 +94,27 @@ func addChaptersToBook(book *Epub, folder InputFolder, maxDepth int) error {
 			break
 		}
 	}
-	if e = scanner.Err(); e != nil {
-		return e
+	if e := scanner.Err(); e != nil {
+		return "", e
 	}
 
-	header := string(buf.Bytes())
-	buf.Reset()
+	return string(buf.Bytes()), nil
+}
 
-	depth, title := 1, ""
+func (this *EpubMaker) splitChapter(header string, scanner *bufio.Scanner) error {
+	maxDepth := this.cfg.GetInt("/book/depth", 1)
+	if maxDepth < 1 || maxDepth > this.book.MaxDepth() {
+		this.writeLog("invalid 'depth' value, reset to '1'.")
+		maxDepth = 1
+	}
+
+	depth, title, buf := 1, "", new(bytes.Buffer)
 	for scanner.Scan() {
 		l := scanner.Text()
 		if nd, nt := checkNewChapter(l); nd > 0 && nd <= maxDepth {
 			if buf.Len() > 0 {
 				buf.WriteString("	</body>\n</html>")
-				if e = book.AddChapter(title, buf.Bytes(), depth); e != nil {
+				if e := this.book.AddChapter(title, buf.Bytes(), depth); e != nil {
 					return e
 				}
 				buf.Reset()
@@ -103,82 +126,118 @@ func addChaptersToBook(book *Epub, folder InputFolder, maxDepth int) error {
 		buf.WriteString(l)
 		buf.WriteString("\n")
 	}
-	if e = scanner.Err(); e != nil {
+	if e := scanner.Err(); e != nil {
 		return e
 	}
 
 	if buf.Len() > 0 {
-		e = book.AddChapter(title, buf.Bytes(), depth)
+		return this.book.AddChapter(title, buf.Bytes(), depth)
 	}
 
 	return nil
 }
 
-func loadConfig(folder InputFolder) (*Config, error) {
-	rc, e := folder.OpenFile("book.ini")
+func (this *EpubMaker) addChaptersToBook() error {
+	f, e := this.folder.OpenFile("book.html")
 	if e != nil {
-		return nil, e
+		return e
 	}
-	defer rc.Close()
-	return ParseIni(rc)
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+
+	header, e := getChapterHeader(scanner)
+	if e != nil {
+		return e
+	}
+
+	return this.splitChapter(header, scanner)
 }
 
-func MakeBook(input string, outdir string) error {
-	folder, e := OpenInputFolder(input)
-	if e != nil {
-		log.Printf("%s: failed to open source folder/file.\n", input)
+func (this *EpubMaker) writeLog(msg string) {
+	this.logger.Printf("%s: %s\n", this.folder.Name(), msg)
+}
+
+func (this *EpubMaker) initBook() (e error) {
+	if this.book, e = NewEpub(false); e != nil {
+		this.writeLog("failed to create epub book.")
 		return e
 	}
 
-	cfg, e := loadConfig(folder)
-	if e != nil {
-		log.Printf("%s: failed to open 'book.ini'.\n", input)
-		return e
-	}
+	s := this.cfg.GetString("/book/id", "")
+	this.book.SetId(s)
 
-	book, e := NewEpub(false)
-	if e != nil {
-		log.Printf("%s: failed to create epub book.\n", input)
-		return e
-	}
-
-	s := cfg.GetString("/book/id", "")
-	book.SetId(s)
-
-	s = cfg.GetString("/book/name", "")
+	s = this.cfg.GetString("/book/name", "")
 	if len(s) == 0 {
-		log.Printf("%s: book name is empty.\n", input)
+		this.writeLog("book name is empty.")
 	}
-	book.SetName(s)
+	this.book.SetName(s)
 
-	s = cfg.GetString("/book/author", "")
+	s = this.cfg.GetString("/book/author", "")
 	if len(s) == 0 {
-		log.Printf("%s: author name is empty.\n", input)
+		this.writeLog("author name is empty.")
 	}
-	book.SetAuthor(s)
+	this.book.SetAuthor(s)
 
-	if e = setCoverPage(book, folder); e != nil {
-		log.Printf("%s: failed to set cover page.\n", input)
+	return nil
+}
+
+func (this *EpubMaker) Run(folder InputFolder) (e error) {
+	this.folder = folder
+
+	if e = this.loadConfig(); e != nil {
+		this.writeLog("failed to open configuration file.")
 		return e
 	}
 
-	if e = addFilesToBook(book, folder); e != nil {
-		log.Printf("%s: failed to add files to book.\n", input)
+	if e = this.initBook(); e != nil {
 		return e
 	}
 
-	depth := cfg.GetInt("/book/depth", 1)
-	if depth < 1 || depth > book.MaxDepth() {
-		log.Printf("%s: invalid 'depth' value, reset to '1'.\n", input)
-		depth = 1
-	}
-	if e = addChaptersToBook(book, folder, depth); e != nil {
-		log.Printf("%s: failed to add chapters to book.\n", input)
+	if e = this.setCoverPage(); e != nil {
+		this.writeLog("failed to set cover page.")
 		return e
 	}
 
-	if s = cfg.GetString("/output/path", ""); len(s) == 0 {
-		log.Printf("%s: output path is empty, no file will be created.\n", input)
+	if e = this.addFilesToBook(); e != nil {
+		this.writeLog("failed to add files to book.")
+		return e
+	}
+
+	if e = this.addChaptersToBook(); e != nil {
+		this.writeLog("failed to add chapters to book.")
+		return e
+	}
+
+	if e = this.book.Close(); e != nil {
+		this.writeLog("failed to close book.")
+		return e
+	}
+
+	return nil
+}
+
+func (this *EpubMaker) RunPhisical(path string) error {
+	folder, e := OpenInputFolder(path)
+	if e != nil {
+		this.logger.Printf("%s: failed to open source folder/file.\n", path)
+		return e
+	}
+	return this.Run(folder)
+}
+
+func (this *EpubMaker) RunMemory(data []byte) error {
+	folder, e := NewZipFolder(data)
+	if e != nil {
+		this.logger.Printf("failed to open memory data as zip folder.\n")
+		return e
+	}
+	return this.Run(folder)
+}
+
+func (this *EpubMaker) SaveTo(outdir string) error {
+	s := this.cfg.GetString("/output/path", "")
+	if len(s) == 0 {
+		this.writeLog("output path is empty, no file will be created.")
 		return nil
 	}
 
@@ -186,12 +245,24 @@ func MakeBook(input string, outdir string) error {
 		_, s = filepath.Split(s)
 		s = filepath.Join(outdir, s)
 	}
-	if e = book.CloseAndSave(s); e != nil {
-		log.Printf("%s: failed to create output file.\n", input)
+	if e := this.book.Save(s); e != nil {
+		this.writeLog("failed to create output file.")
 		return e
 	}
 
+	this.writeLog("output file created at '" + s + "'.")
 	return nil
+}
+
+func (this *EpubMaker) GetResult() ([]byte, string) {
+	name := this.cfg.GetString("/output/path", "")
+	if len(name) > 0 {
+		_, name = filepath.Split(name)
+	} else {
+		name = "book.epub"
+	}
+
+	return this.book.Buffer(), name
 }
 
 func RunMake() {
@@ -200,7 +271,11 @@ func RunMake() {
 		outdir = os.Args[2]
 	}
 
-	if MakeBook(os.Args[1], outdir) != nil {
+	em := NewEpubMaker(logger)
+	if em.RunPhisical(os.Args[1]) != nil {
+		os.Exit(1)
+	}
+	if em.SaveTo(outdir) != nil {
 		os.Exit(1)
 	}
 }

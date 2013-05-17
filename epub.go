@@ -214,19 +214,16 @@ func (this *Epub) generateTocNcx() error {
 	buf.WriteString(s)
 
 	depth, playorder := 0, 1
-	for index := 0; index < len(this.files); index++ {
-		ef := this.files[index]
-		if ef.depth == 0 {
+	for _, fi := range this.files {
+		if fi.depth == 0 {
 			continue
-		}
-
-		if ef.depth == depth {
+		} else if fi.depth == depth {
 			buf.WriteString("</navPoint>\n")
-		} else if ef.depth > depth {
-			// todo: if ef.depth > depth + 1
-			depth = ef.depth
+		} else if fi.depth > depth {
+			// todo: if fi.depth > depth + 1
+			depth = fi.depth
 		} else {
-			for ef.depth <= depth {
+			for fi.depth <= depth {
 				buf.WriteString("</navPoint>\n")
 				depth--
 			}
@@ -240,8 +237,8 @@ func (this *Epub) generateTocNcx() error {
 			"	<content src=\"%s\"/>\n",
 			playorder,
 			playorder,
-			ef.title,
-			ef.path,
+			fi.title,
+			fi.path,
 		)
 		playorder++
 		buf.WriteString(s)
@@ -278,13 +275,12 @@ func (this *Epub) generateContentOpf() error {
 	)
 	buf.WriteString(s)
 
-	for i := 0; i < len(this.files); i++ {
-		ef := this.files[i]
+	for i, fi := range this.files {
 		s = fmt.Sprintf(""+
 			"		<item href=\"%s\" id=\"item%04d\" media-type=\"%s\"/>\n",
-			ef.path,
+			fi.path,
 			i,
-			getMediaType(ef.path),
+			getMediaType(fi.path),
 		)
 		buf.WriteString(s)
 	}
@@ -296,13 +292,11 @@ func (this *Epub) generateContentOpf() error {
 		"	<spine toc=\"ncx\">\n" +
 		"		<itemref idref=\"cover\" linear=\"no\" properties=\"duokan-page-fullscreen\"/>\n")
 
-	for i := 0; i < len(this.files); i++ {
-		ef := this.files[i]
-		if ef.depth == 0 {
-			continue
+	for i, fi := range this.files {
+		if fi.depth > 0 {
+			s = fmt.Sprintf("		<itemref idref=\"item%04d\" linear=\"yes\"/>\n", i)
+			buf.WriteString(s)
 		}
-		s = fmt.Sprintf("		<itemref idref=\"item%04d\" linear=\"yes\"/>\n", i)
-		buf.WriteString(s)
 	}
 
 	buf.WriteString("" +
@@ -344,7 +338,6 @@ func (this *Epub) Save(path string) error {
 func (this *Epub) CloseAndSave(path string) error {
 	if e := this.Close(); e != nil {
 		return e
-	} else {
-		return this.Save(path)
 	}
+	return this.Save(path)
 }

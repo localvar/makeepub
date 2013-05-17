@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"io/ioutil"
-	"log"
 	"os"
 	"regexp"
 	"sort"
@@ -20,7 +19,7 @@ func mergeHtml(folder InputFolder, names []string) []byte {
 	for i, name := range names {
 		f, e := folder.OpenFile(name)
 		if e != nil {
-			log.Fatalf("error reading '%s'.\n", name)
+			logger.Fatalf("error reading '%s'.\n", name)
 		}
 
 		scanner := bufio.NewScanner(f)
@@ -35,7 +34,7 @@ func mergeHtml(folder InputFolder, names []string) []byte {
 			}
 		}
 		if scanner.Err() != nil {
-			log.Fatalf("error reading '%s'.\n", name)
+			logger.Fatalf("error reading '%s'.\n", name)
 		}
 
 		for scanner.Scan() {
@@ -47,7 +46,7 @@ func mergeHtml(folder InputFolder, names []string) []byte {
 			buf.WriteString("\n")
 		}
 		if scanner.Err() != nil {
-			log.Fatalf("error reading '%s'.\n", name)
+			logger.Fatalf("error reading '%s'.\n", name)
 		}
 
 		f.Close()
@@ -63,7 +62,7 @@ func mergeText(folder InputFolder, names []string) []byte {
 	for _, name := range names {
 		f, e := folder.OpenFile(name)
 		if e != nil {
-			log.Fatalf("error reading '%s'.\n", name)
+			logger.Fatalf("error reading '%s'.\n", name)
 		}
 
 		scanner := bufio.NewScanner(f)
@@ -72,7 +71,7 @@ func mergeText(folder InputFolder, names []string) []byte {
 			buf.WriteString("\n")
 		}
 		if scanner.Err() != nil {
-			log.Fatalf("error reading '%s'.\n", name)
+			logger.Fatalf("error reading '%s'.\n", name)
 		}
 
 		f.Close()
@@ -86,16 +85,16 @@ func RunMerge() {
 
 	folder, e := OpenInputFolder(os.Args[2])
 	if e != nil {
-		log.Fatalln("failed to open input folder.")
+		logger.Fatalln("failed to open input folder.")
 	}
 
 	names, e := folder.ReadDirNames()
 	if e != nil {
-		log.Fatal("failed to get input file list.")
+		logger.Fatal("failed to get input file list.")
 	}
 
 	if len(names) == 0 {
-		log.Println("input folder is empty.")
+		logger.Println("input folder is empty.")
 		return
 	}
 
@@ -109,6 +108,6 @@ func RunMerge() {
 	}
 
 	if e = ioutil.WriteFile(os.Args[3], data, 0666); e != nil {
-		log.Fatalln("failed to write to output file.\n")
+		logger.Fatalln("failed to write to output file.\n")
 	}
 }

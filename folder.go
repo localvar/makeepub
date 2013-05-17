@@ -18,6 +18,7 @@ type InputFolder interface {
 	OpenFile(path string) (io.ReadCloser, error)
 	Walk(fnWalk FxWalk) error
 	ReadDirNames() ([]string, error)
+	Name() string
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -32,6 +33,10 @@ func OpenSystemFolder(path string) *SystemFolder {
 
 func (this *SystemFolder) OpenFile(path string) (io.ReadCloser, error) {
 	return os.Open(filepath.Join(this.path, path))
+}
+
+func (this *SystemFolder) Name() string {
+	return this.path
 }
 
 func (this *SystemFolder) Walk(fnWalk FxWalk) error {
@@ -61,7 +66,8 @@ func (this *SystemFolder) ReadDirNames() ([]string, error) {
 ////////////////////////////////////////////////////////////////////////////////
 
 type ZipFolder struct {
-	zr *zip.Reader
+	zr   *zip.Reader
+	name string
 }
 
 func NewZipFolder(data []byte) (*ZipFolder, error) {
@@ -69,16 +75,23 @@ func NewZipFolder(data []byte) (*ZipFolder, error) {
 	if zr, e := zip.NewReader(r, int64(len(data))); e != nil {
 		return nil, e
 	} else {
-		return &ZipFolder{zr: zr}, nil
+		return &ZipFolder{zr: zr, name: "<memory>"}, nil
 	}
 }
 
 func OpenZipFolder(path string) (*ZipFolder, error) {
 	if data, e := ioutil.ReadFile(path); e != nil {
 		return nil, e
+	} else if zf, e := NewZipFolder(data); e != nil {
+		return nil, e
 	} else {
-		return NewZipFolder(data)
+		zf.name = path
+		return zf, nil
 	}
+}
+
+func (this *ZipFolder) Name() string {
+	return this.name
 }
 
 func (this *ZipFolder) OpenFile(path string) (io.ReadCloser, error) {

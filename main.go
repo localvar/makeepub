@@ -33,13 +33,14 @@ func showUsage() {
 
 func checkCommandLine(minArg int) {
 	if len(os.Args) < minArg {
-		log.Fatalf("invalid command line. see '%s -?'\n", getBinaryName())
+		logger.Fatalf("invalid command line. see '%s -?'\n", getBinaryName())
 	}
 }
 
+var logger *log.Logger
+
 func main() {
-	log.SetFlags(0)
-	log.SetPrefix(getBinaryName() + ": ")
+	logger = log.New(os.Stderr, getBinaryName()+": ", 0)
 
 	checkCommandLine(2)
 
@@ -60,6 +61,6 @@ func main() {
 		RunMake()
 	}
 
-	log.Println("done, time used:", time.Now().Sub(start).String())
+	logger.Println("done, time used:", time.Now().Sub(start).String())
 	os.Exit(0)
 }

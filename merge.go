@@ -81,7 +81,7 @@ func mergeText(folder VirtualFolder, names []string) []byte {
 }
 
 func RunMerge() {
-	checkCommandLine(4)
+	checkCommandLineArgumentCount(4)
 
 	folder, e := OpenVirtualFolder(os.Args[2])
 	if e != nil {

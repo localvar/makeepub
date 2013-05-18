@@ -99,7 +99,8 @@ func RunServer() {
 			logger.Fatalln("invalid port number.")
 		}
 	}
-	fmt.Println("Web Server Mode, Press 'Ctrl + C' to exit.")
+	fmt.Printf("Web Server started, listen at port '%d'\n", port)
+	fmt.Println("Press 'Ctrl + C' to exit.")
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }

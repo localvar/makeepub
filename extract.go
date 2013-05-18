@@ -8,7 +8,7 @@ import (
 )
 
 func RunExtract() {
-	checkCommandLine(4)
+	checkCommandLineArgumentCount(4)
 
 	zrc, e := zip.OpenReader(os.Args[2])
 	if e != nil {

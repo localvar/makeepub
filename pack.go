@@ -36,7 +36,7 @@ func packFiles(book *Epub, input string) error {
 }
 
 func RunPack() {
-	checkCommandLine(4)
+	checkCommandLineArgumentCount(4)
 
 	book, e := NewEpub(true)
 	if e != nil {

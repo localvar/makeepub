@@ -8,59 +8,72 @@ import (
 	"time"
 )
 
-func getBinaryName() string {
-	name := os.Args[0]
-	for i := len(name) - 1; i >= 0; i-- {
-		if name[i] == '.' {
-			name = name[0:i]
-		} else if os.IsPathSeparator(name[i]) {
-			name = name[i+1:]
-			break
-		}
-	}
-	return name
-}
-
 func showUsage() {
-	bn := getBinaryName()
-	fmt.Printf("Usage: %s <input_folder>  [output_folder]\n", bn)
-	fmt.Printf("       %s <zip> [output_folder]\n", bn)
-	fmt.Printf("       %s <epub> <output_folder>\n", bn)
-	fmt.Printf("       %s <input_folder> <output_file>", bn)
-	fmt.Printf("       %s <-? | -h | -H>\n", bn)
+	usage := `Create/Batch Create/Pack/Extract EPUB file(s). Merge HTML/Text files.
+It can also work as a web server to convert an uploaded zip file to an EPUB.
+Please refer to manual for detailed usage.
+
+COMMAND LINE
+  Create       : makeepub <VirtualFolder> [OutputFolder]
+  Batch Create : makeepub -b <InputFolder> [OutputFolder]
+                 makeepub -b <BatchFile> [OutputFolder]
+  Pack         : makeepub -p <VirtualFolder> <OutputFile>
+  Extract      : makeepub -e <EpubFile> <OutputFolder>
+  Merge HTML   : makeepub -mh <VirtualFolder> <OutputFile>
+  Merge Text   : makeepub -mt <VirtualFolder> <OutputFile>
+  Web Server   : makeepub -s [Port]
+
+ARGUMENT
+  VirtualFolder: An OS folder or a zip file which contains the input files.
+  OutputFolder : An OS folder to store the output file(s).
+  InputFolder  : An OS folder which contains the input folder(s)/file(s).
+  BatchFile    : A text which lists the path of 'VirtualFolders' to be
+                 processed, one line for one 'VirtualFolder'
+  OutputFile   : The path of the output file.
+  EpubFile     : The path of an EPUB file.
+  Port         : The TCP port to listen to, default value is 80.
+`
+	fmt.Print(usage)
 	os.Exit(0)
 }
 
-func checkCommandLine(minArg int) {
+func onCommandLineError() {
+	logger.Fatalln("invalid command line. see 'makeepub -?'")
+}
+
+func checkCommandLineArgumentCount(minArg int) {
 	if len(os.Args) < minArg {
-		logger.Fatalf("invalid command line. see '%s -?'\n", getBinaryName())
+		onCommandLineError()
 	}
 }
 
-var logger *log.Logger
+var logger = log.New(os.Stderr, "makeepub: ", 0)
 
 func main() {
-	logger = log.New(os.Stderr, getBinaryName()+": ", 0)
-
-	checkCommandLine(2)
+	checkCommandLineArgumentCount(2)
 
 	start := time.Now()
 
-	switch strings.ToLower(os.Args[1]) {
-	case "-b", "/b":
-		RunBatch()
-	case "-e", "/e":
-		RunExtract()
-	case "-h", "/h", "-?":
-		showUsage()
-	case "-mh", "/mh", "-mt", "/mt":
-		RunMerge()
-	case "-p", "/p":
-		RunPack()
-	case "-s", "/s":
-		RunServer()
-	default:
+	mode := strings.ToLower(os.Args[1])
+	if mode[0] != '-' && mode[0] != '/' {
 		RunMake()
+	} else {
+		switch mode[1:] {
+		case "b":
+			RunBatch()
+		case "e":
+			RunExtract()
+		case "h", "?":
+			showUsage()
+		case "mh", "mt":
+			RunMerge()
+		case "p":
+			RunPack()
+		case "s":
+			RunServer()
+		default:
+			onCommandLineError()
+		}
 	}
 
 	logger.Println("done, time used:", time.Now().Sub(start).String())

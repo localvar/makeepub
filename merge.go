@@ -9,7 +9,7 @@ import (
 	"sort"
 )
 
-func mergeHtml(folder InputFolder, names []string) []byte {
+func mergeHtml(folder VirtualFolder, names []string) []byte {
 	var (
 		reBodyStart = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
 		reBodyEnd   = regexp.MustCompile("^[ \t]*</(?i)body(?-i)>[ \t]*$")
@@ -56,7 +56,7 @@ func mergeHtml(folder InputFolder, names []string) []byte {
 	return buf.Bytes()
 }
 
-func mergeText(folder InputFolder, names []string) []byte {
+func mergeText(folder VirtualFolder, names []string) []byte {
 	buf := new(bytes.Buffer)
 
 	for _, name := range names {
@@ -83,7 +83,7 @@ func mergeText(folder InputFolder, names []string) []byte {
 func RunMerge() {
 	checkCommandLine(4)
 
-	folder, e := OpenInputFolder(os.Args[2])
+	folder, e := OpenVirtualFolder(os.Args[2])
 	if e != nil {
 		logger.Fatalln("failed to open input folder.")
 	}

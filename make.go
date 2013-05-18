@@ -16,16 +16,8 @@ var (
 	reBody   = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
 )
 
-func checkNewChapter(l string) (depth int, title string) {
-	if m := reHeader.FindStringSubmatch(l); m != nil && m[1] == m[3] {
-		depth = int(m[1][0] - '0')
-		title = m[2]
-	}
-	return
-}
-
 type EpubMaker struct {
-	folder InputFolder
+	folder VirtualFolder
 	book   *Epub
 	logger *log.Logger
 	cfg    *Config
@@ -45,25 +37,10 @@ func (this *EpubMaker) loadConfig() error {
 	return e
 }
 
-func (this *EpubMaker) setCoverPage() error {
-	f, e := this.folder.OpenFile("cover.html")
-	if e != nil {
-		return e
-	}
-	defer f.Close()
-
-	data, e := ioutil.ReadAll(f)
-	if e == nil {
-		e = this.book.SetCoverPage("cover.html", data)
-	}
-
-	return e
-}
-
 func (this *EpubMaker) addFilesToBook() error {
 	walk := func(path string) error {
 		p := strings.ToLower(path)
-		if p == "book.ini" || p == "book.html" || p == "cover.html" {
+		if p == "book.ini" || p == "book.html" {
 			return nil
 		}
 
@@ -77,6 +54,9 @@ func (this *EpubMaker) addFilesToBook() error {
 			return e
 		}
 
+		if p == "cover.html" {
+			this.book.SetCoverPage(p)
+		}
 		return this.book.AddFile(path, data)
 	}
 
@@ -99,6 +79,14 @@ func getChapterHeader(scanner *bufio.Scanner) (string, error) {
 	}
 
 	return string(buf.Bytes()), nil
+}
+
+func checkNewChapter(l string) (depth int, title string) {
+	if m := reHeader.FindStringSubmatch(l); m != nil && m[1] == m[3] {
+		depth = int(m[1][0] - '0')
+		title = m[2]
+	}
+	return
 }
 
 func (this *EpubMaker) splitChapter(header string, scanner *bufio.Scanner) error {
@@ -181,7 +169,7 @@ func (this *EpubMaker) initBook() (e error) {
 	return nil
 }
 
-func (this *EpubMaker) Run(folder InputFolder) (e error) {
+func (this *EpubMaker) Process(folder VirtualFolder) (e error) {
 	this.folder = folder
 
 	if e = this.loadConfig(); e != nil {
@@ -190,11 +178,6 @@ func (this *EpubMaker) Run(folder InputFolder) (e error) {
 	}
 
 	if e = this.initBook(); e != nil {
-		return e
-	}
-
-	if e = this.setCoverPage(); e != nil {
-		this.writeLog("failed to set cover page.")
 		return e
 	}
 
@@ -214,24 +197,6 @@ func (this *EpubMaker) Run(folder InputFolder) (e error) {
 	}
 
 	return nil
-}
-
-func (this *EpubMaker) RunPhisical(path string) error {
-	folder, e := OpenInputFolder(path)
-	if e != nil {
-		this.logger.Printf("%s: failed to open source folder/file.\n", path)
-		return e
-	}
-	return this.Run(folder)
-}
-
-func (this *EpubMaker) RunMemory(data []byte) error {
-	folder, e := NewZipFolder(data)
-	if e != nil {
-		this.logger.Printf("failed to open memory data as zip folder.\n")
-		return e
-	}
-	return this.Run(folder)
 }
 
 func (this *EpubMaker) SaveTo(outdir string) error {
@@ -266,16 +231,18 @@ func (this *EpubMaker) GetResult() ([]byte, string) {
 }
 
 func RunMake() {
-	outdir := ""
+	var outdir string
 	if len(os.Args) > 2 {
 		outdir = os.Args[2]
 	}
 
-	em := NewEpubMaker(logger)
-	if em.RunPhisical(os.Args[1]) != nil {
+	maker := NewEpubMaker(logger)
+
+	if folder, e := OpenVirtualFolder(os.Args[1]); e != nil {
+		logger.Fatalf("%s: failed to open source folder/file.\n", os.Args[1])
+	} else if maker.Process(folder) != nil {
 		os.Exit(1)
-	}
-	if em.SaveTo(outdir) != nil {
+	} else if maker.SaveTo(outdir) != nil {
 		os.Exit(1)
 	}
 }

@@ -14,7 +14,7 @@ import (
 
 type FxWalk func(path string) error
 
-type InputFolder interface {
+type VirtualFolder interface {
 	OpenFile(path string) (io.ReadCloser, error)
 	Walk(fnWalk FxWalk) error
 	ReadDirNames() ([]string, error)
@@ -122,7 +122,7 @@ func (this *ZipFolder) ReadDirNames() ([]string, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func OpenInputFolder(path string) (InputFolder, error) {
+func OpenVirtualFolder(path string) (VirtualFolder, error) {
 	stat, e := os.Stat(path)
 	if e != nil {
 		return nil, e

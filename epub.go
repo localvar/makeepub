@@ -185,11 +185,8 @@ func (this *Epub) AddChapter(title string, data []byte, depth int) error {
 	return e
 }
 
-func (this *Epub) SetCoverPage(path string, data []byte) (e error) {
-	if e = this.addFileToZip(path, data); e == nil {
-		this.cover = path
-	}
-	return nil
+func (this *Epub) SetCoverPage(path string) {
+	this.cover = path
 }
 
 func (this *Epub) generateTocNcx() error {
@@ -276,6 +273,9 @@ func (this *Epub) generateContentOpf() error {
 	buf.WriteString(s)
 
 	for i, fi := range this.files {
+		if fi.path == this.cover {
+			continue
+		}
 		s = fmt.Sprintf(""+
 			"		<item href=\"%s\" id=\"item%04d\" media-type=\"%s\"/>\n",
 			fi.path,
@@ -285,13 +285,16 @@ func (this *Epub) generateContentOpf() error {
 		buf.WriteString(s)
 	}
 
+	if len(this.cover) > 0 {
+		buf.WriteString("		<item href=\"" + this.cover + "\" id=\"cover\" media-type=\"application/xhtml+xml\"/>\n")
+	}
 	buf.WriteString("" +
 		"		<item href=\"" + toc_ncx + "\" media-type=\"application/x-dtbncx+xml\" id=\"ncx\"/>\n" +
-		"		<item href=\"" + this.cover + "\" id=\"cover\" media-type=\"application/xhtml+xml\"/>\n" +
 		"	</manifest>\n" +
-		"	<spine toc=\"ncx\">\n" +
-		"		<itemref idref=\"cover\" linear=\"no\" properties=\"duokan-page-fullscreen\"/>\n")
-
+		"	<spine toc=\"ncx\">\n")
+	if len(this.cover) > 0 {
+		buf.WriteString("		<itemref idref=\"cover\" linear=\"no\" properties=\"duokan-page-fullscreen\"/>\n")
+	}
 	for i, fi := range this.files {
 		if fi.depth > 0 {
 			s = fmt.Sprintf("		<itemref idref=\"item%04d\" linear=\"yes\"/>\n", i)
@@ -299,12 +302,11 @@ func (this *Epub) generateContentOpf() error {
 		}
 	}
 
-	buf.WriteString("" +
-		"	</spine>\n" +
-		"	<guide>\n" +
-		"		<reference href=\"" + this.cover + "\" type=\"cover\" title=\"Cover\"/>\n" +
-		"	</guide>\n" +
-		"</package>")
+	buf.WriteString("	</spine>\n	<guide>\n")
+	if len(this.cover) > 0 {
+		buf.WriteString("		<reference href=\"" + this.cover + "\" type=\"cover\" title=\"Cover\"/>\n")
+	}
+	buf.WriteString("	</guide>\n</package>")
 
 	return this.addFileToZip(content_opf, buf.Bytes())
 }

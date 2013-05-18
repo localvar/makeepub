@@ -6,7 +6,7 @@ import (
 )
 
 func packFiles(book *Epub, input string) error {
-	folder, e := OpenInputFolder(input)
+	folder, e := OpenVirtualFolder(input)
 	if e != nil {
 		logger.Println("failed to open source folder/file.\n")
 		return e

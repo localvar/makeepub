@@ -18,12 +18,16 @@ var (
 )
 
 func runTask(input string, outdir string) {
-	tr := new(taskResult)
-	tr.input = input
+	var (
+		maker  = NewEpubMaker(logger)
+		folder VirtualFolder
+		tr     = &taskResult{input: input}
+	)
 
-	em := NewEpubMaker(nil)
-	if tr.e = em.RunPhisical(input); tr.e == nil {
-		tr.e = em.SaveTo(outdir)
+	if folder, tr.e = OpenVirtualFolder(input); tr.e != nil {
+		logger.Printf("%s: failed to open source folder/file.\n", input)
+	} else if tr.e = maker.Process(folder); tr.e == nil {
+		tr.e = maker.SaveTo(outdir)
 	}
 
 	chTaskResult <- tr
@@ -32,15 +36,12 @@ func runTask(input string, outdir string) {
 func processBatchFile(f *os.File, outdir string) (count int, e error) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		n := strings.TrimSpace(scanner.Text())
-		if len(n) == 0 {
-			continue
+		name := strings.TrimSpace(scanner.Text())
+		if len(name) > 0 {
+			go runTask(name, outdir)
+			count++
 		}
-
-		go runTask(n, outdir)
-		count++
 	}
-
 	if e = scanner.Err(); e != nil {
 		logger.Println("error reading batch file.")
 	}
@@ -48,25 +49,15 @@ func processBatchFile(f *os.File, outdir string) (count int, e error) {
 	return
 }
 
-func processBatchFolder(f *os.File, outdir string) (int, error) {
+func processBatchFolder(f *os.File, outdir string) (count int, e error) {
 	names, e := f.Readdirnames(-1)
 	if e != nil {
 		logger.Println("error reading source folder.")
 		return 0, e
 	}
 
-	count := 0
 	for _, name := range names {
 		name = filepath.Join(f.Name(), name)
-
-		stat, e := os.Stat(name)
-		// let runTask to handle the error if 'e' is not nil
-		if e == nil && (!stat.IsDir()) {
-			if strings.ToLower(filepath.Ext(name)) != ".zip" {
-				continue
-			}
-		}
-
 		go runTask(name, outdir)
 		count++
 	}

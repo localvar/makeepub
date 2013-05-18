@@ -57,6 +57,8 @@ func main() {
 		RunMerge()
 	case "-p", "/p":
 		RunPack()
+	case "-s", "/s":
+		RunServer()
 	default:
 		RunMake()
 	}

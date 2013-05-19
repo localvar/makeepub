@@ -22,7 +22,7 @@ const (
 	<body>
 		<form enctype="multipart/form-data" action="/" method="POST">
     		<label>Source File / 源文件:</label><input name="input" type="file" />
-    		<input type="submit" value="Upload & Make / 上传并转换">
+    		<button type="submit">Upload & Make / 上传并转换</button>
 		</form>
 	</body>
 </html>
@@ -103,4 +103,8 @@ func RunServer() {
 	fmt.Println("Press 'Ctrl + C' to exit.")
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+}
+
+func init() {
+	AddCommandHandler("s", RunServer)
 }

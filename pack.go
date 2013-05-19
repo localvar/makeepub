@@ -36,7 +36,7 @@ func packFiles(book *Epub, input string) error {
 }
 
 func RunPack() {
-	checkCommandLineArgumentCount(4)
+	CheckCommandLineArgumentCount(4)
 
 	book, e := NewEpub(true)
 	if e != nil {
@@ -50,4 +50,8 @@ func RunPack() {
 	if book.CloseAndSave(os.Args[3]) != nil {
 		logger.Fatalln("failed to create output file: ", os.Args[3])
 	}
+}
+
+func init() {
+	AddCommandHandler("p", RunPack)
 }

@@ -81,7 +81,7 @@ func mergeText(folder VirtualFolder, names []string) []byte {
 }
 
 func RunMerge() {
-	checkCommandLineArgumentCount(4)
+	CheckCommandLineArgumentCount(4)
 
 	folder, e := OpenVirtualFolder(os.Args[2])
 	if e != nil {
@@ -110,4 +110,9 @@ func RunMerge() {
 	if e = ioutil.WriteFile(os.Args[3], data, 0666); e != nil {
 		logger.Fatalln("failed to write to output file.\n")
 	}
+}
+
+func init() {
+	AddCommandHandler("mh", RunMerge)
+	AddCommandHandler("mt", RunMerge)
 }

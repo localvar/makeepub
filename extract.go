@@ -8,7 +8,7 @@ import (
 )
 
 func RunExtract() {
-	checkCommandLineArgumentCount(4)
+	CheckCommandLineArgumentCount(4)
 
 	zrc, e := zip.OpenReader(os.Args[2])
 	if e != nil {
@@ -48,4 +48,8 @@ func RunExtract() {
 
 		rc.Close()
 	}
+}
+
+func init() {
+	AddCommandHandler("e", RunExtract)
 }

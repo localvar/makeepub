@@ -41,41 +41,55 @@ func onCommandLineError() {
 	logger.Fatalln("invalid command line. see 'makeepub -?'")
 }
 
-func checkCommandLineArgumentCount(minArg int) {
+func CheckCommandLineArgumentCount(minArg int) {
 	if len(os.Args) < minArg {
 		onCommandLineError()
 	}
 }
 
-var logger = log.New(os.Stderr, "makeepub: ", 0)
+type CommandHandler struct {
+	command string
+	handler func()
+}
 
-func main() {
-	checkCommandLineArgumentCount(2)
+var (
+	logger   = log.New(os.Stderr, "makeepub: ", 0)
+	handlers = make([]CommandHandler, 0, 8)
+)
 
-	start := time.Now()
-
-	mode := strings.ToLower(os.Args[1])
-	if mode[0] != '-' && mode[0] != '/' {
-		RunMake()
-	} else {
-		switch mode[1:] {
-		case "b":
-			RunBatch()
-		case "e":
-			RunExtract()
-		case "h", "?":
-			showUsage()
-		case "mh", "mt":
-			RunMerge()
-		case "p":
-			RunPack()
-		case "s":
-			RunServer()
-		default:
-			onCommandLineError()
+func AddCommandHandler(cmd string, handler func()) {
+	for _, h := range handlers {
+		if h.command == cmd {
+			logger.Fatalf("handler for command '%s' already exists.\n", cmd)
 		}
 	}
+	handlers = append(handlers, CommandHandler{command: cmd, handler: handler})
+}
 
+func findCommandHandler(cmd string) func() {
+	if cmd[0] != '-' && cmd[0] != '/' {
+		return RunMake
+	}
+	cmd = strings.ToLower(cmd[1:])
+	for _, h := range handlers {
+		if cmd == h.command {
+			return h.handler
+		}
+	}
+	return onCommandLineError
+}
+
+func main() {
+	logger.Println("project home page: https://github.com/localvar/makeepub")
+	CheckCommandLineArgumentCount(2)
+
+	AddCommandHandler("?", showUsage)
+	AddCommandHandler("h", showUsage)
+	handler := findCommandHandler(os.Args[1])
+
+	start := time.Now()
+	handler()
 	logger.Println("done, time used:", time.Now().Sub(start).String())
+
 	os.Exit(0)
 }

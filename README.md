@@ -191,16 +191,16 @@ Extract *EpubFile* to folder *OutputFolder*.
 
 Sort files in *VirtualFolder* in ascend order by file name, merge them, and save the merge result as *OutputFile*. The merge mode can be *html*(-mh) or *text*(-mt).
 
-文本模式是简单的将文件内容连接在一起，Html模式会分析文件，只保留一份文件头(<body>之前的部分)和文件尾(</body>之后的部分)。
+文本模式是简单的将文件内容连接在一起，Html模式会分析文件，只保留一份文件头(&lt;body&gt;之前的部分)和文件尾(&lt;/body&gt;之后的部分)。
 
-*text* mode is simply merge file content one by one. *html* mode will analysis the file to keep only one copy of file header (content before <body>) and file footer (content after </body>).
+*text* mode is simply merge file content one by one. *html* mode will analysis the file to keep only one copy of file header (content before &lt;body&gt;) and file footer (content after &lt;/body&gt;).
 
 
 ## 7. Web服务器(Web Server)
 
 	makeepub -s [Port]
 
-以Web服务器形式运行，处理用户通过浏览器上传的zip文件，生成EPUB文件，供用户下载。
+以Web服务器形式运行，处理用户上传的zip文件，生成EPUB文件，供用户下载。
 
 Run as a web server, process the user uploaded zip file, and generate the EPUB file for user to download.
 
@@ -213,3 +213,7 @@ If you don't need this feature, it can be removed to reduce the size of the exec
 MakeEpub是自由软件，基于[MIT授权](http://opensource.org/licenses/mit-license.html)发布
 
 MakeEpub is free software distributed under the terms of the [MIT license](http://opensource.org/licenses/mit-license.html).
+
+此程序是根据我自己制作epub书籍的需要编写，同时也通过编写过程熟悉了[Go语言](http://golang.org/)(可能需翻墙)。今后，将仅修正bug，而不再增加新的功能。
+
+This tool is developed for my own need when creating epub book, I also learned the [Go program language](http://golang.org/). From now on, I will only fix bugs and won't add new feature any more.

@@ -66,7 +66,7 @@ func processBatchFolder(f *os.File, outdir string) (count int, e error) {
 }
 
 func RunBatch() {
-	checkCommandLineArgumentCount(3)
+	CheckCommandLineArgumentCount(3)
 
 	f, e := os.Open(os.Args[2])
 	if e != nil {
@@ -102,4 +102,8 @@ func RunBatch() {
 	}
 
 	logger.Printf("total: %d   succeeded: %d    failed: %d\n", count, count-failed, failed)
+}
+
+func init() {
+	AddCommandHandler("b", RunBatch)
 }

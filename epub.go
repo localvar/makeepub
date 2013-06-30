@@ -103,7 +103,7 @@ func (this *Epub) addFileToZip(path string, data []byte) error {
 
 func NewEpub(packOnly bool) (*Epub, error) {
 	this := new(Epub)
-	this.files = make([]FileInfo, 256)
+	this.files = make([]FileInfo, 0, 256)
 	this.buf = new(bytes.Buffer)
 	this.zip = zip.NewWriter(this.buf)
 	this.packOnly = packOnly

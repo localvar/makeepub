@@ -54,8 +54,10 @@ func (this *EpubMaker) addFilesToBook() error {
 			return e
 		}
 
-		if p == "cover.html" {
-			this.book.SetCoverPage(p)
+		if p == "cover.png" || p == "cover.jpg" || p == "cover.gif" {
+			if e := this.book.SetCoverImage(p); e != nil {
+				return e
+			}
 		}
 		return this.book.AddFile(path, data)
 	}

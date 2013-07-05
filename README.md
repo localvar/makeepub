@@ -41,11 +41,11 @@ Process files in *VirtualFolder*, generate epub file and save it to *OutputFolde
 
 + **book.ini** 配置文件，用于指定书名、作者等信息(configuration file to specify book name, author and etc.)
 + **book.html** 书的正文(The content of the book)
-+ **cover.html** 封面(The cover of the book)
++ **cover.png** or **cover.jpg** or **cover.gif** 封面图片文件(The cover image of the book)
 
-请 **务必** 使用 *UTF-8* 编码保存这三个文件，否则程序可能不能正确处理。
+请 **务必** 使用 *UTF-8* 编码保存前两个文件，否则程序可能不能正确处理。
 
-The 3 files **MUST** stored in *UTF-8* encoding, otherwise, the tool may not able to process them correctly.
+The first 2 files **MUST** stored in *UTF-8* encoding, otherwise, the tool may not able to process them correctly.
 
 除以上文件外，其它书籍需要的文件，如层叠样式表（css），图片等也应保存到此文件夹中。如果文件内容是文本，建议也使用 *UTF-8* 编码保存。
 
@@ -105,32 +105,16 @@ This is a standard html file, but the 2 points below must be followed:
 According to the *depth* setting, the tool will split this file into chapter files, the content before \<body\> tag will be copied to the beginning of each chapter file.
 
 
-#### cover.html
+#### cover.png/jpg/gif
 
-它是一个标准的html文件，一般情况下您直接拷贝下面示例文件的内容就可以了，根据实际情况，您可能需要修改一下图片文件（cover.jpg）的名字。
+一个图片文件，它将被用来生成封面。这个文件可以是cover.png、cover.jpg和cover.gif中的任意一个，如果存在多个，如同时有cover.png和cover.jpg，那么程序会随机使用其中一个生成封面。
 
-This is a standard html file. In most case, you can simply copy the content of the example file listed below. According to the scenario, you may need to change the name of the image file (cover.jpg).
+An image file which will be used to create the book cover. It can be 'cover.png', 'cover.jpg' or 'cover.gif', if more than one file exists (for example: both 'cover.png' and 'cover.jpg'), the tool will select one randomly.
 
+封面文件的名字是cover.html，所以请勿使用这个文件名，否则程序的行为将是未知的。
 
-	<?xml version='1.0' encoding='utf-8'?>
-	<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
-	    <head>
-	        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-	        <meta name="calibre:cover" content="true"/>
-	        <title>Cover</title>
-	        <style type="text/css" title="override_css">
-	            @page {padding: 0pt; margin:0pt}
-	            body { text-align: center; padding:0pt; margin: 0pt; }
-	        </style>
-	    </head>
-	    <body>
-	        <div>
-	            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="100%" height="100%" viewBox="0 0 600 800" preserveAspectRatio="none">
-	                <image width="600" height="800" xlink:href="cover.jpg"/>
-	            </svg>
-	        </div>
-	    </body>
-	</html>
+The file name of the cover page is 'cover.html', please don't use this name for any other purpose, otherwise the behavior of this tool is not defined.
+
 
 ### 2.2 输出文件的路径(path of the output file)
 

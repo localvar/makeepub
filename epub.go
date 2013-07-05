@@ -15,6 +15,7 @@ const (
 	toc_ncx     = "toc.ncx"
 	content_opf = "content.opf"
 	meta_inf    = "META-INF/container.xml"
+	cover_html  = "cover.html"
 )
 
 var (
@@ -185,8 +186,24 @@ func (this *Epub) AddChapter(title string, data []byte, depth int) error {
 	return e
 }
 
-func (this *Epub) SetCoverPage(path string) {
+func (this *Epub) SetCoverImage(path string) error {
+	if len(this.cover) > 0 {
+		return nil
+	}
 	this.cover = path
+
+	s := fmt.Sprintf(""+
+		"<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>"+
+		"<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">"+
+		"<html xmlns=\"http://www.w3.org/1999/xhtml\">"+
+		"<head>"+
+		"	<title></title>"+
+		"</head>"+
+		"<body>"+
+		"	<p><img alt=\"cover\" src=\"%s\"/></p>"+
+		"</body>"+
+		"</html>", path)
+	return this.AddFile(cover_html, []byte(s))
 }
 
 func (this *Epub) generateTocNcx() error {
@@ -259,13 +276,14 @@ func (this *Epub) generateContentOpf() error {
 		"	<metadata xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:opf=\"http://www.idpf.org/2007/opf\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:calibre=\"http://calibre.kovidgoyal.net/2009/metadata\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n"+
 		"		<dc:language>zh</dc:language>\n"+
 		"		<dc:creator opf:role=\"aut\">%s</dc:creator>\n"+
-		"		<meta name=\"cover\" content=\"cover\"/>\n"+
+		"		<meta name=\"cover\" content=\"%s\"/>\n"+
 		"		<dc:date>%s</dc:date>\n"+
 		"		<dc:title>%s</dc:title>\n"+
 		"		<dc:identifier id=\"uuid_id\">%s</dc:identifier>\n"+
 		"	</metadata>\n"+
 		"	<manifest>\n",
 		this.Author,
+		this.cover,
 		time.Now().Format(time.RFC3339),
 		this.Name,
 		this.Id(),
@@ -273,7 +291,7 @@ func (this *Epub) generateContentOpf() error {
 	buf.WriteString(s)
 
 	for i, fi := range this.files {
-		if fi.path == this.cover {
+		if fi.path == cover_html {
 			continue
 		}
 		s = fmt.Sprintf(""+
@@ -286,7 +304,7 @@ func (this *Epub) generateContentOpf() error {
 	}
 
 	if len(this.cover) > 0 {
-		buf.WriteString("		<item href=\"" + this.cover + "\" id=\"cover\" media-type=\"application/xhtml+xml\"/>\n")
+		buf.WriteString("		<item href=\"" + cover_html + "\" id=\"cover\" media-type=\"application/xhtml+xml\"/>\n")
 	}
 	buf.WriteString("" +
 		"		<item href=\"" + toc_ncx + "\" media-type=\"application/x-dtbncx+xml\" id=\"ncx\"/>\n" +
@@ -304,7 +322,7 @@ func (this *Epub) generateContentOpf() error {
 
 	buf.WriteString("	</spine>\n	<guide>\n")
 	if len(this.cover) > 0 {
-		buf.WriteString("		<reference href=\"" + this.cover + "\" type=\"cover\" title=\"Cover\"/>\n")
+		buf.WriteString("		<reference href=\"" + cover_html + "\" type=\"cover\" title=\"Cover\"/>\n")
 	}
 	buf.WriteString("	</guide>\n</package>")
 

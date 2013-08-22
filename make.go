@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	reHeader = regexp.MustCompile("^[ \t]*<[hH]([1-6])[^>]*>([^<]*)</[hH]([1-6])>[ \t]*$")
-	reBody   = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
+	reComment = regexp.MustCompile("^[ \t]*<!--<[hH]([1-6])[^>]*>([^<]*)</[hH]([1-6])>-->[ \t]*$")
+	reHeader  = regexp.MustCompile("^[ \t]*<[hH]([1-6])[^>]*>([^<]*)</[hH]([1-6])>[ \t]*$")
+	reBody    = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
 )
 
 type EpubMaker struct {
@@ -83,8 +84,8 @@ func getChapterHeader(scanner *bufio.Scanner) (string, error) {
 	return string(buf.Bytes()), nil
 }
 
-func checkNewChapter(l string) (depth int, title string) {
-	if m := reHeader.FindStringSubmatch(l); m != nil && m[1] == m[3] {
+func checkNewChapter(re *regexp.Regexp, l string) (depth int, title string) {
+	if m := re.FindStringSubmatch(l); m != nil && m[1] == m[3] {
 		depth = int(m[1][0] - '0')
 		title = m[2]
 	}
@@ -98,10 +99,19 @@ func (this *EpubMaker) splitChapter(header string, scanner *bufio.Scanner) error
 		maxDepth = 1
 	}
 
+	re := reHeader
+	if d := strings.ToLower(this.cfg.GetString("/book/separator", "header")); d != "header" {
+		if d == "comment" {
+			re = reComment
+		} else {
+			this.writeLog("invalid 'separator' value, use 'header' as default.")
+		}
+	}
+
 	depth, title, buf := 1, "", new(bytes.Buffer)
 	for scanner.Scan() {
 		l := scanner.Text()
-		if nd, nt := checkNewChapter(l); nd > 0 && nd <= maxDepth {
+		if nd, nt := checkNewChapter(re, l); nd > 0 && nd <= maxDepth {
 			if buf.Len() > 0 {
 				buf.WriteString("	</body>\n</html>")
 				if e := this.book.AddChapter(title, buf.Bytes(), depth); e != nil {

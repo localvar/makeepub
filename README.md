@@ -73,6 +73,7 @@ This file contains two sections: *book* and *output*. section *book* is for the 
 	- **author**:  作者，如果没有提供会导致程序输出一个警告信息(Author of the book, if not specified, the tool will generate a warning)
 	- **id**: 书的唯一标识，在正规出版的书中，它应该是ISBN编号，如果您没有指定，程序将随机生成一个(The unique identifier, it is the ISBN for a published book. If not specified, the tool will generate a random string for it.)
 	- **depth**: 一个 *1* 到 *6* 之间的整数，用于指定章节拆分的粒度，默认为 *1*，即只根据 *h1* 标签拆分章节(An integer between *1* and *6*, specifis how to split the html file into chapters. Default value is *1*, which means the split is based on the *h1* tags)
+	- **separator**: 章节分隔符，目前支持 *header* 和 *comment* 两种，默认为 *header* 。如果是 *header* 则按 *h1*, *h2* 等拆分章节；如果是 *comment* 则按 注释方式的 *h1*, *h2* 等拆分章节，如 `<!--<h1>chapter 1</h1>-->`。The chapter separator, can be *header* or *comment*, default is *header*. If it is *header*, then chapters will be split at *h1*, *h2* and etc; if it is *comment*, then split at the comment of *h1*, *h2* and etc, for example `<!--<h1>chapter 1</h1>-->`.
 	
 + Output节(Section Output)
 	- **path**: 输出epub文件的路径。如果没有指定，程序会产生一个警告且不会生成任何文件(The output path of the target epub file. If the path is not specified, the tool will generate a warning and no file will be created)
@@ -86,6 +87,7 @@ Below is an example for book.ini.
 	author=Super Man
 	id=ISBN XXXXXXXXXXXX
 	depth=1
+	separator=header
 	
 	[output]
 	path=d:\MyBook.epub

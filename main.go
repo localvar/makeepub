@@ -79,6 +79,13 @@ func findCommandHandler(cmd string) func() {
 	return onCommandLineError
 }
 
+func removeUtf8Bom(data []byte) []byte {
+	if len(data) > 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
+		data = data[3:]
+	}
+	return data
+}
+
 func main() {
 	logger.Println("project home page: https://github.com/localvar/makeepub")
 	CheckCommandLineArgumentCount(2)

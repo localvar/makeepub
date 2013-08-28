@@ -24,12 +24,12 @@ func mergeHtml(folder VirtualFolder, names []string) []byte {
 
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
-			l := scanner.Text()
+			l := scanner.Bytes()
 			if i == 0 {
-				buf.WriteString(l)
-				buf.WriteString("\n")
+				buf.Write(l)
+				buf.WriteByte('\n')
 			}
-			if reBodyStart.MatchString(l) {
+			if reBodyStart.Match(l) {
 				break
 			}
 		}
@@ -38,12 +38,12 @@ func mergeHtml(folder VirtualFolder, names []string) []byte {
 		}
 
 		for scanner.Scan() {
-			l := scanner.Text()
-			if reBodyEnd.MatchString(l) {
+			l := scanner.Bytes()
+			if reBodyEnd.Match(l) {
 				break
 			}
-			buf.WriteString(l)
-			buf.WriteString("\n")
+			buf.Write(l)
+			buf.WriteByte('\n')
 		}
 		if scanner.Err() != nil {
 			logger.Fatalf("error reading '%s'.\n", name)
@@ -53,7 +53,7 @@ func mergeHtml(folder VirtualFolder, names []string) []byte {
 	}
 
 	buf.WriteString("</body>\n</html>")
-	return buf.Bytes()
+	return removeUtf8Bom(buf.Bytes())
 }
 
 func mergeText(folder VirtualFolder, names []string) []byte {
@@ -65,14 +65,13 @@ func mergeText(folder VirtualFolder, names []string) []byte {
 			logger.Fatalf("error reading '%s'.\n", name)
 		}
 
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			buf.WriteString(scanner.Text())
-			buf.WriteString("\n")
-		}
-		if scanner.Err() != nil {
+		data, e := ioutil.ReadAll(f)
+		if e != nil {
 			logger.Fatalf("error reading '%s'.\n", name)
 		}
+
+		buf.Write(removeUtf8Bom(data))
+		buf.WriteByte('\n')
 
 		f.Close()
 	}

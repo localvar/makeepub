@@ -66,33 +66,33 @@ func (this *EpubMaker) addFilesToBook() error {
 	return this.folder.Walk(walk)
 }
 
-func getChapterHeader(scanner *bufio.Scanner) (string, error) {
+func getChapterHeader(scanner *bufio.Scanner) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	for scanner.Scan() {
-		l := scanner.Text()
-		buf.WriteString(l)
-		buf.WriteString("\n")
-		if reBody.MatchString(l) {
+		l := scanner.Bytes()
+		buf.Write(l)
+		buf.WriteByte('\n')
+		if reBody.Match(l) {
 			break
 		}
 	}
 	if e := scanner.Err(); e != nil {
-		return "", e
+		return nil, e
 	}
 
-	return string(buf.Bytes()), nil
+	return removeUtf8Bom(buf.Bytes()), nil
 }
 
-func checkNewChapter(re *regexp.Regexp, l string) (depth int, title string) {
-	if m := re.FindStringSubmatch(l); m != nil && m[1] == m[3] {
+func checkNewChapter(re *regexp.Regexp, l []byte) (depth int, title string) {
+	if m := re.FindSubmatch(l); m != nil && m[1][0] == m[3][0] {
 		depth = int(m[1][0] - '0')
-		title = m[2]
+		title = string(m[2])
 	}
 	return
 }
 
-func (this *EpubMaker) splitChapter(header string, scanner *bufio.Scanner) error {
+func (this *EpubMaker) splitChapter(header []byte, scanner *bufio.Scanner) error {
 	maxDepth := this.cfg.GetInt("/book/depth", 1)
 	if maxDepth < 1 || maxDepth > this.book.MaxDepth() {
 		this.writeLog("invalid 'depth' value, reset to '1'.")
@@ -110,7 +110,7 @@ func (this *EpubMaker) splitChapter(header string, scanner *bufio.Scanner) error
 
 	depth, title, buf := 1, "", new(bytes.Buffer)
 	for scanner.Scan() {
-		l := scanner.Text()
+		l := scanner.Bytes()
 		if nd, nt := checkNewChapter(re, l); nd > 0 && nd <= maxDepth {
 			if buf.Len() > 0 {
 				buf.WriteString("	</body>\n</html>")
@@ -120,11 +120,11 @@ func (this *EpubMaker) splitChapter(header string, scanner *bufio.Scanner) error
 				buf.Reset()
 			}
 			depth, title = nd, nt
-			buf.WriteString(header)
+			buf.Write(header)
 		}
 
-		buf.WriteString(l)
-		buf.WriteString("\n")
+		buf.Write(l)
+		buf.WriteByte('\n')
 	}
 	if e := scanner.Err(); e != nil {
 		return e

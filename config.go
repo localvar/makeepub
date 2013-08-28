@@ -23,21 +23,27 @@ func ParseIni(reader io.Reader) (*Config, error) {
 	section := "/"
 	cfg := &Config{data: make(map[string]string)}
 
+	firstLine := true
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
-		s := scanner.Text()
-		if reComment.MatchString(s) {
+		s := scanner.Bytes()
+		if firstLine {
+			s = removeUtf8Bom(s)
+			firstLine = false
+		}
+
+		if reComment.Match(s) {
 			continue
 		}
 
-		if m := reSection.FindStringSubmatch(s); m != nil {
-			section = "/" + m[1]
+		if m := reSection.FindSubmatch(s); m != nil {
+			section = "/" + string(m[1])
 			continue
 		}
 
-		if m := reKey.FindStringSubmatch(s); m != nil {
-			k := strings.ToLower(section + "/" + m[1])
-			cfg.data[k] = m[2]
+		if m := reKey.FindSubmatch(s); m != nil {
+			k := strings.ToLower(section + "/" + string(m[1]))
+			cfg.data[k] = string(m[2])
 		}
 	}
 

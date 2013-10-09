@@ -152,6 +152,7 @@ func (this *Epub) AddFile(path string, data []byte) (e error) {
 		return nil
 	}
 
+	path = filepath.ToSlash(path)
 	if e = this.addFileToZip(path, data); e == nil {
 		this.files = append(this.files, FileInfo{path: path})
 	}
@@ -190,7 +191,7 @@ func (this *Epub) SetCoverImage(path string) error {
 	if len(this.cover) > 0 {
 		return nil
 	}
-	this.cover = path
+	this.cover = filepath.ToSlash(path)
 
 	s := fmt.Sprintf(""+
 		"<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>"+
@@ -202,7 +203,7 @@ func (this *Epub) SetCoverImage(path string) error {
 		"<body>"+
 		"	<p><img alt=\"cover\" src=\"%s\"/></p>"+
 		"</body>"+
-		"</html>", path)
+		"</html>", this.cover)
 	return this.AddFile(cover_html, []byte(s))
 }
 

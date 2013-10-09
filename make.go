@@ -60,8 +60,6 @@ func (this *EpubMaker) addFilesToBook() error {
 				return e
 			}
 		}
-
-		path = strings.Replace(path, "\\", "/", -1)
 		return this.book.AddFile(path, data)
 	}
 

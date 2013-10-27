@@ -13,6 +13,7 @@ import (
 const (
 	mimetype    = "mimetype"
 	toc_ncx     = "toc.ncx"
+	nav_xhtml   = "nav.xhtml"
 	content_opf = "content.opf"
 	meta_inf    = "META-INF/container.xml"
 	cover_html  = "cover.html"
@@ -194,17 +195,121 @@ func (this *Epub) SetCoverImage(path string) error {
 	this.cover = filepath.ToSlash(path)
 
 	s := fmt.Sprintf(""+
-		"<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>"+
-		"<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">"+
-		"<html xmlns=\"http://www.w3.org/1999/xhtml\">"+
-		"<head>"+
-		"	<title></title>"+
-		"</head>"+
-		"<body>"+
-		"	<p><img alt=\"cover\" src=\"%s\"/></p>"+
-		"</body>"+
-		"</html>", this.cover)
+		"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"+
+		"<html xmlns=\"http://www.w3.org/1999/xhtml\">\n"+
+		"<head>\n"+
+		"	<title></title>\n"+
+		"</head>\n"+
+		"<body>\n"+
+		"	<p><img alt=\"cover\" src=\"%s\"/></p>\n"+
+		"</body>\n"+
+		"</html>\n", this.cover)
 	return this.AddFile(cover_html, []byte(s))
+}
+
+func (this *Epub) generateNavDoc() error {
+	buf := new(bytes.Buffer)
+	s := fmt.Sprintf(""+
+		"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"+
+		"<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\">\n"+
+		"	<head>\n"+
+		"		<title>%s</title>\n"+
+		"	</head>\n"+
+		"	<body>\n"+
+		"		<nav id=\"toc\" epub:type=\"toc\">\n",
+		this.Name)
+	buf.WriteString(s)
+
+	depth, index := 0, 1
+	for _, fi := range this.files {
+		if fi.depth == 0 {
+			continue
+		} else if fi.depth == depth {
+			buf.WriteString("</li>\n<li")
+		} else if fi.depth > depth {
+			// todo: if fi.depth > depth + 1
+			buf.WriteString("<ol>\n<li")
+			depth = fi.depth
+		} else {
+			for fi.depth < depth {
+				buf.WriteString("</li>\n</ol>\n")
+				depth--
+			}
+			buf.WriteString("</li>\n<li")
+		}
+
+		s = fmt.Sprintf(" id=\"chapter_%d\">\n	<a href=\"%s\">%s</a>\n",
+			index,
+			fi.path,
+			fi.title)
+		index++
+		buf.WriteString(s)
+	}
+
+	for depth > 0 {
+		buf.WriteString("</li>\n</ol>\n")
+		depth--
+	}
+
+	buf.WriteString("		</nav>\n	</body>\n</html>")
+
+	return this.addFileToZip(nav_xhtml, buf.Bytes())
+}
+
+func (this *Epub) generateContentOpf() error {
+	buf := new(bytes.Buffer)
+	s := fmt.Sprintf(""+
+		"<?xml version='1.0' encoding='utf-8'?>\n"+
+		"<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"uuid_id\">\n"+
+		"	<metadata xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:opf=\"http://www.idpf.org/2007/opf\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n"+
+		"		<dc:language>zh</dc:language>\n"+
+		"		<dc:creator>%s</dc:creator>\n"+
+		"		<meta name=\"cover\" content=\"%s\"/>\n"+
+		"		<meta property=\"dcterms:modified\">%s</meta>\n"+
+		"		<dc:title>%s</dc:title>\n"+
+		"		<dc:identifier id=\"uuid_id\">%s</dc:identifier>\n"+
+		"	</metadata>\n"+
+		"	<manifest>\n",
+		this.Author,
+		this.cover,
+		time.Now().UTC().Format(time.RFC3339),
+		this.Name,
+		this.Id(),
+	)
+	buf.WriteString(s)
+
+	for i, fi := range this.files {
+		if fi.path == cover_html {
+			continue
+		}
+		s = fmt.Sprintf("		<item href=\"%s\" id=\"item%04d\" media-type=\"%s\"/>\n",
+			fi.path,
+			i,
+			getMediaType(fi.path),
+		)
+		buf.WriteString(s)
+	}
+
+	if len(this.cover) > 0 {
+		buf.WriteString("		<item href=\"" + cover_html + "\" id=\"cover\" media-type=\"application/xhtml+xml\"/>\n")
+	}
+	buf.WriteString("" +
+		"		<item properties=\"nav\" id=\"ncx\" href=\"" + nav_xhtml + "\" media-type=\"application/xhtml+xml\"/>\n" +
+		"	</manifest>\n" +
+		"	<spine>\n")
+	if len(this.cover) > 0 {
+		buf.WriteString("		<itemref idref=\"cover\" linear=\"no\" properties=\"duokan-page-fullscreen\"/>\n")
+	}
+	for i, fi := range this.files {
+		if fi.depth > 0 {
+			s = fmt.Sprintf("		<itemref idref=\"item%04d\" linear=\"yes\"/>\n", i)
+			buf.WriteString(s)
+		}
+	}
+
+	buf.WriteString("	</spine>\n</package>")
+
+	return this.addFileToZip(content_opf, buf.Bytes())
 }
 
 func (this *Epub) generateTocNcx() error {
@@ -269,7 +374,7 @@ func (this *Epub) generateTocNcx() error {
 	return this.addFileToZip(toc_ncx, buf.Bytes())
 }
 
-func (this *Epub) generateContentOpf() error {
+func (this *Epub) generateContentOpf2() error {
 	buf := new(bytes.Buffer)
 	s := fmt.Sprintf(""+
 		"<?xml version='1.0' encoding='utf-8'?>\n"+
@@ -295,8 +400,7 @@ func (this *Epub) generateContentOpf() error {
 		if fi.path == cover_html {
 			continue
 		}
-		s = fmt.Sprintf(""+
-			"		<item href=\"%s\" id=\"item%04d\" media-type=\"%s\"/>\n",
+		s = fmt.Sprintf("		<item href=\"%s\" id=\"item%04d\" media-type=\"%s\"/>\n",
 			fi.path,
 			i,
 			getMediaType(fi.path),
@@ -332,7 +436,8 @@ func (this *Epub) generateContentOpf() error {
 
 func (this *Epub) Close() error {
 	if !this.packOnly {
-		if e := this.generateTocNcx(); e != nil {
+		//if e := this.generateTocNcx(); e != nil {
+		if e := this.generateNavDoc(); e != nil {
 			return e
 		}
 		if e := this.generateContentOpf(); e != nil {

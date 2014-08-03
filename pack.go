@@ -25,10 +25,7 @@ func packFiles(book *Epub, input string) error {
 			return e
 		}
 
-		if e = book.AddFile(path, data); e != nil {
-			logger.Println("failed to pack file: ", path)
-		}
-
+		book.AddFile(path, data)
 		return e
 	}
 
@@ -38,10 +35,7 @@ func packFiles(book *Epub, input string) error {
 func RunPack() {
 	CheckCommandLineArgumentCount(4)
 
-	book, e := NewEpub(true)
-	if e != nil {
-		logger.Fatalln("failed to create epub book.")
-	}
+	book := NewEpub()
 
 	if packFiles(book, os.Args[2]) != nil {
 		os.Exit(1)

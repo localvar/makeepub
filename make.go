@@ -56,11 +56,10 @@ func (this *EpubMaker) addFilesToBook() error {
 		}
 
 		if p == "cover.png" || p == "cover.jpg" || p == "cover.gif" {
-			if e := this.book.SetCoverImage(p); e != nil {
-				return e
-			}
+			this.book.SetCoverImage(p)
 		}
-		return this.book.AddFile(path, data)
+		this.book.AddFile(path, data)
+		return nil
 	}
 
 	return this.folder.Walk(walk)
@@ -94,7 +93,7 @@ func checkNewChapter(re *regexp.Regexp, l []byte) (depth int, title string) {
 
 func (this *EpubMaker) splitChapter(header []byte, scanner *bufio.Scanner) error {
 	maxDepth := this.cfg.GetInt("/book/depth", 1)
-	if maxDepth < 1 || maxDepth > this.book.MaxDepth() {
+	if maxDepth < 1 {
 		this.writeLog("invalid 'depth' value, reset to '1'.")
 		maxDepth = 1
 	}
@@ -114,10 +113,8 @@ func (this *EpubMaker) splitChapter(header []byte, scanner *bufio.Scanner) error
 		if nd, nt := checkNewChapter(re, l); nd > 0 && nd <= maxDepth {
 			if buf.Len() > 0 {
 				buf.WriteString("	</body>\n</html>")
-				if e := this.book.AddChapter(title, buf.Bytes(), depth); e != nil {
-					return e
-				}
-				buf.Reset()
+				this.book.AddChapter(append(make([]Chapter, 0, 1), Chapter{Level: depth, Title: title}), buf.Bytes())
+				buf = new(bytes.Buffer)
 			}
 			depth, title = nd, nt
 			buf.Write(header)
@@ -131,7 +128,7 @@ func (this *EpubMaker) splitChapter(header []byte, scanner *bufio.Scanner) error
 	}
 
 	if buf.Len() > 0 {
-		return this.book.AddChapter(title, buf.Bytes(), depth)
+		this.book.AddChapter(append(make([]Chapter, 0, 1), Chapter{Level: depth, Title: title}), buf.Bytes())
 	}
 
 	return nil
@@ -158,10 +155,7 @@ func (this *EpubMaker) writeLog(msg string) {
 }
 
 func (this *EpubMaker) initBook() (e error) {
-	if this.book, e = NewEpub(false); e != nil {
-		this.writeLog("failed to create epub book.")
-		return e
-	}
+	this.book = NewEpub()
 
 	s := this.cfg.GetString("/book/id", "")
 	this.book.SetId(s)
@@ -193,13 +187,13 @@ func (this *EpubMaker) Process(folder VirtualFolder) (e error) {
 		return e
 	}
 
-	if e = this.addFilesToBook(); e != nil {
-		this.writeLog("failed to add files to book.")
+	if e = this.addChaptersToBook(); e != nil {
+		this.writeLog("failed to add chapters to book.")
 		return e
 	}
 
-	if e = this.addChaptersToBook(); e != nil {
-		this.writeLog("failed to add chapters to book.")
+	if e = this.addFilesToBook(); e != nil {
+		this.writeLog("failed to add files to book.")
 		return e
 	}
 

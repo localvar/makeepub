@@ -224,17 +224,17 @@ func (this *Epub) generateContentOpf() []byte {
 
 	fmt.Fprintf(buf, ""+
 		"<?xml version='1.0' encoding='utf-8'?>\n"+
-		"<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"uuid_id\">\n"+
+		"<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"2.0\" unique-identifier=\"uuid_id\">\n"+
 		"	<metadata xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:opf=\"http://www.idpf.org/2007/opf\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n"+
 		"		<dc:language>zh</dc:language>\n"+
 		"		<dc:creator>%s</dc:creator>\n"+
 		"		<meta name=\"cover\" content=\"%s\"/>\n"+
-		"		<meta property=\"dcterms:modified\">%s</meta>\n"+
+		"		<dc:date>%s</dc:date>\n"+
 		"		<dc:title>%s</dc:title>\n"+
 		"		<dc:identifier id=\"uuid_id\">%s</dc:identifier>\n"+
 		"	</metadata>\n"+
 		"	<manifest>\n"+
-		"		<item properties=\"nav\" id=\"ncx\" href=\""+path_of_toc_ncx+"\" media-type=\"application/xhtml+xml\"/>\n",
+		"		<item id=\"ncx\" href=\""+path_of_toc_ncx+"\" media-type=\"application/x-dtbncx+xml\"/>\n",
 		this.Author(),
 		this.cover,
 		time.Now().UTC().Format(time.RFC3339),
@@ -260,7 +260,7 @@ func (this *Epub) generateContentOpf() []byte {
 
 	buf.WriteString("" +
 		"	</manifest>\n" +
-		"	<spine>\n",
+		"	<spine toc=\"ncx\">\n",
 	)
 
 	if len(this.cover) > 0 {
@@ -312,7 +312,7 @@ func (this *Epub) generateTocNcx() []byte {
 		"		<meta name=\"builder\" content=\"makeepub\"/>\n"+
 		"	</head>\n"+
 		"	<docTitle><text>%s</text></docTitle>\n"+
-		"	<docAuthor><text>%s</text></docAuthor>"+
+		"	<docAuthor><text>%s</text></docAuthor>\n"+
 		"	<navMap>\n",
 		this.Id(),
 		this.Depth(),

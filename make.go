@@ -139,7 +139,18 @@ func (this *EpubMaker) addChaptersToBook() error {
 	if e != nil {
 		return e
 	}
-	defer f.Close()
+	/*
+		defer f.Close()
+		doc, e := html.Parse(f)
+		if e != nil {
+			return e
+		}
+
+		for node := doc.FirstChild; node != nil; node = node.NextSibling {
+			this.logger.Println(node.Data, node.Type)
+			html.Render(os.Stdout, node)
+		}*/
+
 	scanner := bufio.NewScanner(f)
 
 	header, e := getChapterHeader(scanner)
@@ -148,6 +159,7 @@ func (this *EpubMaker) addChaptersToBook() error {
 	}
 
 	return this.splitChapter(header, scanner)
+	return nil
 }
 
 func (this *EpubMaker) writeLog(msg string) {
@@ -197,15 +209,10 @@ func (this *EpubMaker) Process(folder VirtualFolder) (e error) {
 		return e
 	}
 
-	if e = this.book.Close(); e != nil {
-		this.writeLog("failed to close book.")
-		return e
-	}
-
 	return nil
 }
 
-func (this *EpubMaker) SaveTo(outdir string) error {
+func (this *EpubMaker) SaveTo(outdir string, version int) error {
 	s := this.cfg.GetString("/output/path", "")
 	if len(s) == 0 {
 		this.writeLog("output path is empty, no file will be created.")
@@ -214,9 +221,10 @@ func (this *EpubMaker) SaveTo(outdir string) error {
 
 	if len(outdir) != 0 {
 		_, s = filepath.Split(s)
-		s = filepath.Join(outdir, s)
+		s = filepath.Join(outdir, s) //"testbook.zip")
 	}
-	if e := this.book.Save(s); e != nil {
+
+	if e := this.book.Save(s, version); e != nil {
 		this.writeLog("failed to create output file.")
 		return e
 	}
@@ -225,7 +233,7 @@ func (this *EpubMaker) SaveTo(outdir string) error {
 	return nil
 }
 
-func (this *EpubMaker) GetResult() ([]byte, string) {
+func (this *EpubMaker) GetResult() ([]byte, string, error) {
 	name := this.cfg.GetString("/output/path", "")
 	if len(name) > 0 {
 		_, name = filepath.Split(name)
@@ -233,7 +241,8 @@ func (this *EpubMaker) GetResult() ([]byte, string) {
 		name = "book.epub"
 	}
 
-	return this.book.Buffer(), name
+	data, e := this.book.Build(VERSION_300)
+	return data, name, e
 }
 
 func RunMake() {
@@ -248,7 +257,7 @@ func RunMake() {
 		logger.Fatalf("%s: failed to open source folder/file.\n", os.Args[1])
 	} else if maker.Process(folder) != nil {
 		os.Exit(1)
-	} else if maker.SaveTo(outdir) != nil {
+	} else if maker.SaveTo(outdir, VERSION_300) != nil {
 		os.Exit(1)
 	}
 }

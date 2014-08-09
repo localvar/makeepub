@@ -63,9 +63,12 @@ func doConvert(l *log.Logger, w http.ResponseWriter, r *http.Request) error {
 		return e
 	}
 
-	data, name := maker.GetResult()
-	w.Header().Add("Content-Disposition", "attachment; filename="+name)
-	http.ServeContent(w, r, name, time.Now(), bytes.NewReader(data))
+	if data, name, e := maker.GetResult(); e != nil {
+		return e
+	} else {
+		w.Header().Add("Content-Disposition", "attachment; filename="+name)
+		http.ServeContent(w, r, name, time.Now(), bytes.NewReader(data))
+	}
 
 	return nil
 }

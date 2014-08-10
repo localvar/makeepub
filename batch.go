@@ -26,7 +26,7 @@ func runTask(input string, outdir string) {
 
 	if folder, tr.e = OpenVirtualFolder(input); tr.e != nil {
 		logger.Printf("%s: failed to open source folder/file.\n", input)
-	} else if tr.e = maker.Process(folder); tr.e == nil {
+	} else if tr.e = maker.Process(folder, true); tr.e == nil {
 		tr.e = maker.SaveTo(outdir, VERSION_300)
 	}
 

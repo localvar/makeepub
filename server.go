@@ -59,7 +59,7 @@ func doConvert(l *log.Logger, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	maker := NewEpubMaker(l)
-	if e = maker.Process(folder); e != nil {
+	if e = maker.Process(folder, true); e != nil {
 		return e
 	}
 

@@ -113,7 +113,8 @@ type Epub struct {
 	id     string
 	name   string
 	author string
-	cover  string
+	cover  string // path of the cover image
+	duokan bool   // if duokan externsion is enabled
 	files  []*File
 }
 
@@ -153,6 +154,10 @@ func (this *Epub) Author() string {
 
 func (this *Epub) SetAuthor(author string) {
 	this.author = author
+}
+
+func (this *Epub) EnableDuokan(enable bool) {
+	this.duokan = enable
 }
 
 func (this *Epub) SetCoverImage(path string) {
@@ -295,7 +300,12 @@ func (this *Epub) generateContentOpf(version int) []byte {
 	}
 
 	if len(this.cover) > 0 {
-		buf.WriteString("		<itemref idref=\"cover\" linear=\"no\" properties=\"duokan-page-fullscreen\"/>\n")
+		buf.WriteString("		<itemref idref=\"cover\" linear=\"no\"")
+		if this.duokan {
+			buf.WriteString(" properties=\"duokan-page-fullscreen\"/>\n")
+		} else {
+			buf.WriteString("/>\n")
+		}
 	}
 
 	for i, f := range this.files {
@@ -303,10 +313,10 @@ func (this *Epub) generateContentOpf(version int) []byte {
 			continue
 		}
 		fmt.Fprintf(buf, "		<itemref idref=\"item%04d\" linear=\"yes\"", i)
-		if (f.Attr & epub_FULL_SCREEN_PAGE) == 0 {
-			buf.WriteString("/>\n")
-		} else {
+		if this.duokan && (f.Attr&epub_FULL_SCREEN_PAGE) != 0 {
 			buf.WriteString(" properties=\"duokan-page-fullscreen\"/>\n")
+		} else {
+			buf.WriteString("/>\n")
 		}
 	}
 

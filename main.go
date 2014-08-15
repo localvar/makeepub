@@ -8,15 +8,17 @@ import (
 	"time"
 )
 
+const version = "1.0.0"
+
 func showUsage() {
 	usage := `Create/Batch Create/Pack/Extract EPUB file(s). Merge HTML/Text files.
 It can also work as a web server to convert an uploaded zip file to an EPUB.
 Please refer to manual for detailed usage.
 
 COMMAND LINE
-  Create       : makeepub <VirtualFolder> [OutputFolder]
-  Batch Create : makeepub -b <InputFolder> [OutputFolder]
-                 makeepub -b <BatchFile> [OutputFolder]
+  Create       : makeepub <VirtualFolder> [OutputFolder] [-epub2] [-noduokan]
+  Batch Create : makeepub -b <InputFolder> [OutputFolder] [-epub2] [-noduokan]
+                 makeepub -b <BatchFile> [OutputFolder] [-epub2] [-noduokan]
   Pack         : makeepub -p <VirtualFolder> <OutputFile>
   Extract      : makeepub -e <EpubFile> <OutputFolder>
   Merge HTML   : makeepub -mh <VirtualFolder> <OutputFile>
@@ -26,6 +28,8 @@ COMMAND LINE
 ARGUMENT
   VirtualFolder: An OS folder or a zip file which contains the input files.
   OutputFolder : An OS folder to store the output file(s).
+  -epub2       : Generate books using EPUB2 format, otherwise EPUB3.
+  -noduokan    : Disable DuoKan externsion.
   InputFolder  : An OS folder which contains the input folder(s)/file(s).
   BatchFile    : A text which lists the path of 'VirtualFolders' to be
                  processed, one line for one 'VirtualFolder'
@@ -45,6 +49,19 @@ func CheckCommandLineArgumentCount(minArg int) {
 	if len(os.Args) < minArg {
 		onCommandLineError()
 	}
+}
+
+func GetArgumentFlagBool(args []string, flag string) bool {
+	flag = strings.ToLower(flag)
+	for _, arg := range args {
+		if arg[0] != '-' && arg[0] != '/' {
+			continue
+		}
+		if strings.ToLower(arg[1:]) == flag {
+			return true
+		}
+	}
+	return false
 }
 
 type CommandHandler struct {
@@ -87,7 +104,8 @@ func removeUtf8Bom(data []byte) []byte {
 }
 
 func main() {
-	logger.Println("project home page: https://github.com/localvar/makeepub")
+	fmt.Println("makeepub v" + version)
+	fmt.Println("project home page: https://github.com/localvar/makeepub")
 	CheckCommandLineArgumentCount(2)
 
 	AddCommandHandler("?", showUsage)

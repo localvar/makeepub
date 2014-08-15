@@ -21,7 +21,9 @@ const (
 	</head>
 	<body>
 		<form enctype="multipart/form-data" action="/" method="POST">
-    		<label>Source File / 源文件:</label><input name="input" type="file" />
+    		<label>Source File / 源文件:</label><input name="input" type="file" /><br/>
+			<input name="duokan" type="checkbox" value="duokan" checked/><label>Enable Duokan Externsion / 使用多看扩展属性</label><br/>
+			<input name="format" type="checkbox" value="epub2" /><label>EPUB v2.0 (otherwise / 否则 v3.0)</label><br/>
     		<button type="submit">Upload & Make / 上传并转换</button>
 		</form>
 	</body>
@@ -59,11 +61,15 @@ func doConvert(l *log.Logger, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	maker := NewEpubMaker(l)
-	if e = maker.Process(folder, true); e != nil {
+	if e = maker.Process(folder, r.FormValue("duokan") == "duokan"); e != nil {
 		return e
 	}
 
-	if data, name, e := maker.GetResult(); e != nil {
+	ver := VERSION_300
+	if r.FormValue("epub2") == "epub2" {
+		ver = VERSION_200
+	}
+	if data, name, e := maker.GetResult(ver); e != nil {
 		return e
 	} else {
 		w.Header().Add("Content-Disposition", "attachment; filename="+name)

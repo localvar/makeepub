@@ -1,59 +1,53 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"io/ioutil"
 	"os"
-	"regexp"
 	"sort"
+
+	"code.google.com/p/go.net/html"
 )
 
 func mergeHtml(folder VirtualFolder, names []string) []byte {
-	var (
-		reBodyStart = regexp.MustCompile("^[ \t]*<(?i)body(?-i)[^>]*>$")
-		reBodyEnd   = regexp.MustCompile("^[ \t]*</(?i)body(?-i)>[ \t]*$")
-	)
-	buf := new(bytes.Buffer)
+	var result *html.Node = nil
+	var body *html.Node = nil
 
-	for i, name := range names {
+	for _, name := range names {
 		f, e := folder.OpenFile(name)
 		if e != nil {
 			logger.Fatalf("error reading '%s'.\n", name)
 		}
 
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			l := scanner.Bytes()
-			if i == 0 {
-				buf.Write(l)
-				buf.WriteByte('\n')
-			}
-			if reBodyStart.Match(l) {
-				break
-			}
-		}
-		if scanner.Err() != nil {
-			logger.Fatalf("error reading '%s'.\n", name)
-		}
-
-		for scanner.Scan() {
-			l := scanner.Bytes()
-			if reBodyEnd.Match(l) {
-				break
-			}
-			buf.Write(l)
-			buf.WriteByte('\n')
-		}
-		if scanner.Err() != nil {
-			logger.Fatalf("error reading '%s'.\n", name)
-		}
-
+		doc, e := html.Parse(f)
 		f.Close()
+		if e != nil {
+			logger.Fatalf("error parsing '%s'.\n", name)
+		}
+
+		b := findNodeByName(doc, "body")
+		if b == nil {
+			logger.Fatalf("'%s' has no 'body' element.\n", name)
+		}
+
+		if body == nil {
+			result = doc
+			body = b
+			continue
+		}
+
+		for n := b.FirstChild; n != nil; n = b.FirstChild {
+			b.RemoveChild(n)
+			body.AppendChild(n)
+		}
 	}
 
-	buf.WriteString("</body>\n</html>")
-	return removeUtf8Bom(buf.Bytes())
+	buf := new(bytes.Buffer)
+	if e := html.Render(buf, result); e != nil {
+		logger.Fatalf("failed render result for '%s'.\n", folder.Name())
+	}
+
+	return buf.Bytes()
 }
 
 func mergeText(folder VirtualFolder, names []string) []byte {

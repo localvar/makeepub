@@ -302,7 +302,7 @@ func (this *EpubMaker) SaveTo(outdir string, version int) error {
 	return nil
 }
 
-func (this *EpubMaker) GetResult() ([]byte, string, error) {
+func (this *EpubMaker) GetResult(ver int) ([]byte, string, error) {
 	name := this.cfg.GetString("/output/path", "")
 	if len(name) > 0 {
 		_, name = filepath.Split(name)
@@ -310,7 +310,7 @@ func (this *EpubMaker) GetResult() ([]byte, string, error) {
 		name = "book.epub"
 	}
 
-	data, e := this.book.Build(VERSION_300)
+	data, e := this.book.Build(ver)
 	return data, name, e
 }
 
@@ -320,13 +320,19 @@ func RunMake() {
 		outdir = os.Args[2]
 	}
 
+	duokan := !GetArgumentFlagBool(os.Args[1:], "noduokan")
+	ver := VERSION_300
+	if GetArgumentFlagBool(os.Args[1:], "epub2") {
+		ver = VERSION_200
+	}
+
 	maker := NewEpubMaker(logger)
 
 	if folder, e := OpenVirtualFolder(os.Args[1]); e != nil {
 		logger.Fatalf("%s: failed to open source folder/file.\n", os.Args[1])
-	} else if maker.Process(folder, true) != nil {
+	} else if maker.Process(folder, duokan) != nil {
 		os.Exit(1)
-	} else if maker.SaveTo(outdir, VERSION_300) != nil {
+	} else if maker.SaveTo(outdir, ver) != nil {
 		os.Exit(1)
 	}
 }

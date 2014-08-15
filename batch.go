@@ -22,12 +22,16 @@ func runTask(input string, outdir string) {
 		maker  = NewEpubMaker(logger)
 		folder VirtualFolder
 		tr     = &taskResult{input: input}
+		duokan = !GetArgumentFlagBool(os.Args[2:], "noduokan")
+		ver    = VERSION_300
 	)
-
+	if GetArgumentFlagBool(os.Args[2:], "epub2") {
+		ver = VERSION_200
+	}
 	if folder, tr.e = OpenVirtualFolder(input); tr.e != nil {
 		logger.Printf("%s: failed to open source folder/file.\n", input)
-	} else if tr.e = maker.Process(folder, true); tr.e == nil {
-		tr.e = maker.SaveTo(outdir, VERSION_300)
+	} else if tr.e = maker.Process(folder, duokan); tr.e == nil {
+		tr.e = maker.SaveTo(outdir, ver)
 	}
 
 	chTaskResult <- tr

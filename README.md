@@ -10,9 +10,9 @@ It also support pack/extract an epub file, merge html/text files. And can be use
 
 ## 1. 命令行(Command Line)
 
-	转换(Create)       : makeepub <VirtualFolder> [OutputFolder]
-	批处理(Batch)      : makeepub -b <InputFolder> [OutputFolder]
-                         makeepub -b <BatchFile> [OutputFolder]
+	转换(Create)       : makeepub <VirtualFolder> [OutputFolder] [-epub2] [-noduokan]
+	批处理(Batch)      : makeepub -b <InputFolder> [OutputFolder] [-epub2] [-noduokan]
+                         makeepub -b <BatchFile> [OutputFolder] [-epub2] [-noduokan]
 	打包(Pack)         : makeepub -p <VirtualFolder> <OutputFile>
 	解包(Extract)      : makeepub -e <EpubFile> <OutputFolder>
 	合并(Merge) HTML   : makeepub -mh <VirtualFolder> <OutputFile>
@@ -23,9 +23,11 @@ It also support pack/extract an epub file, merge html/text files. And can be use
 
 The meaning of the arguments are as below:
 
-+ **VirtualFolder** 一个文件夹(如example文件夹下的book文件夹)或zip文件(如example文件夹下的book.zip)，里面包含要处理的文件。(An OS folder (for example: folder *book* in folder *example*) or a zip file(for example: *book.zip* in folder *example*) which contains the input files.)
++ **VirtualFolder** : 一个文件夹(如example文件夹下的book文件夹)或zip文件(如example文件夹下的book.zip)，里面包含要处理的文件。(An OS folder (for example: folder *book* in folder *example*) or a zip file(for example: *book.zip* in folder *example*) which contains the input files.)
 + **OutputFolder** 一个文件夹，用于保存输出文件。(An OS folder to store the output file(s).)
 + **InputFolder**  : 一个文件夹，里面有输入文件或文件夹。(An OS folder which contains the input folder(s)/file(s).)
++ **-epub2** : 默认生成EPUB3格式的文件，使用此参数将生成EPUB2格式的文件。(By default, the output file is EPUB3 format, use this argument if EPUB2 format is required.)
++ **-noduokan** : 禁用 [多看](http://www.duokan.com/) 扩展。(Disable [DuoKan](http://www.duokan.com/) externsion.)
 + **BatchFile**    : 一个文本文件，里面列出了所有要处理的VirtualFolder，每行一个。(A text which lists the path of 'VirtualFolders' to be processed, one line for one 'VirtualFolder'.)
 + **OutputFile**   : 输出文件的路径。(The path of the output file.)
 + **EpubFile**     : 一个epub文件的路径。(The path of an EPUB file.)
@@ -72,8 +74,8 @@ This file contains two sections: *book* and *output*. section *book* is for the 
 	- **name**: 书名，如果没有提供会导致程序输出一个警告信息(Name of the book, if not specified, the tool will generate a warning)
 	- **author**:  作者，如果没有提供会导致程序输出一个警告信息(Author of the book, if not specified, the tool will generate a warning)
 	- **id**: 书的唯一标识，在正规出版的书中，它应该是ISBN编号，如果您没有指定，程序将随机生成一个(The unique identifier, it is the ISBN for a published book. If not specified, the tool will generate a random string for it.)
-	- **depth**: 一个 *1* 到 *6* 之间的整数，用于指定章节拆分的粒度，默认为 *1*，即只根据 *h1* 标签拆分章节(An integer between *1* and *6*, specifis how to split the html file into chapters. Default value is *1*, which means the split is based on the *h1* tags)
-	- **separator**: 章节分隔符，目前支持 *header* 和 *comment* 两种，默认为 *header* 。如果是 *header* 则按 *h1*, *h2* 等拆分章节；如果是 *comment* 则按 注释方式的 *h1*, *h2* 等拆分章节，如 `<!--<h1>chapter 1</h1>-->`。The chapter separator, can be *header* or *comment*, default is *header*. If it is *header*, then chapters will be split at *h1*, *h2* and etc; if it is *comment*, then split at the comment of *h1*, *h2* and etc, for example `<!--<h1>chapter 1</h1>-->`.
+	- **split**: 一个 *1* 到 *6* 之间的整数，用于指定章节拆分的粒度，默认为 *1*，即只根据 *h1* 标签拆分章节(An integer between *1* and *6*, specifis how to split the html file into chapters. Default value is *1*, which means the split is based on the *h1* tags)
+	- **toc**: 一个 *1* 到 *6* 之间的整数，用于指定目录的粒度，默认为 *2*，即根据 *h1*  和 *h2* 标签拆分章节(An integer between *1* and *6*, specifis how to TOC is generated. Default value is *2*, which means the TOC is based on *h1* and *h2* tags)
 	
 + Output节(Section Output)
 	- **path**: 输出epub文件的路径。如果没有指定，程序会产生一个警告且不会生成任何文件(The output path of the target epub file. If the path is not specified, the tool will generate a warning and no file will be created)
@@ -86,8 +88,8 @@ Below is an example for book.ini.
 	name=My First eBook
 	author=Super Man
 	id=ISBN XXXXXXXXXXXX
-	depth=1
-	separator=header
+	split=1
+	toc=2
 	
 	[output]
 	path=d:\MyBook.epub
@@ -95,16 +97,18 @@ Below is an example for book.ini.
 
 #### book.html
 
-它是一个标准的html文件，但必须保证以下两点：
+它是一个标准的html文件，根据 *split* 设置，程序会将此文件拆分成章节文件，根据 *toc* 设置生成书籍目录。\<body\>标签之前的内容会被复制到每个章节文件的开头。
 
-This is a standard html file, but the 2 points below must be followed:
+This is a standard html file. The tool will split this file into chapter files based on *split* setting, and generate TOC based on the *toc* setting. Content before \<body\> tag will be copied to the beginning of each chapter file.
 
-+ \<body\>标签必须独占一行 (The \<body\> tag must be in its own line)
-+ “\<h1\>...\</h1\>”等标题必须独占一行(Headers like "\<h1\>...\</h1\>" must be in their own lines)
+为尽量避免拆分出来的文件只包含章节标题，在 *split* 等于 *2* 时，如果一个 *h1* 标签和后续的 *h2* 标签之间没有任何其他内容的话， *h2* 标签的章节将被合并到 *h1* 标签的章节中。当 *split* 是其它大于 *1* 的值时，处理方法类似。
 
-根据 *depth* 设置，程序会将此文件拆分成章节文件，\<body\>标签之前的内容会被复制到每个章节文件的开头。
+To avoid a chapter file only has a chapter title, when *split* is *2*, if there's no other content between a *h1* tag and its successor *h2* tag, the chapter of the *h2* tag is merged into the chapter of *h1* tag. And similiar split method is used when *split* is greater than *2*.
 
-According to the *depth* setting, the tool will split this file into chapter files, the content before \<body\> tag will be copied to the beginning of each chapter file.
+如果一个 *img* 标签符合以下情况，它将会全屏显示 (An image is displayed as full screen it its *img* tag meet all below conditions):
++ 打开了多看扩展 (DuoKan externsion is enabled)
++ *img* 标签的父级是 *body* 标签 (The parent of *img* tag is *body* tag)
++ *img* 的 *class* 属性等于 *duokan-fullscreen* (The value of the *class* property of the *img* tag is *duokan-fullscreen*)
 
 
 #### cover.png/jpg/gif
@@ -142,14 +146,14 @@ If *OutputFolder* is specified, output file will be save at *OutputFolder*, and 
 
 ## 3. 批处理(Batch)
 
-	makeepub -b <InputFolder> [OutputFolder]
-	makeepub -b <BatchFile> [OutputFolder]
+	makeepub -b <InputFolder> [OutputFolder] [-epub2] [-noduokan]
+	makeepub -b <BatchFile> [OutputFolder] [-epub2] [-noduokan]
 
 批处理模式，相当于对InputFolder中的(或BatchFile列出的)每个VirtualFolder **folder**，调用：
 
 Batch mode, is equal to: for each *VirtualFolder* **folder** in *InputFolder* (or listed in *BatchFile), call:
 
-	makeepub folder [OutputFolder]
+	makeepub folder [OutputFolder] [-epub2] [-noduokan]
 	
 
 ## 4. 打包(Pack)

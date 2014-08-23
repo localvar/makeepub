@@ -65,9 +65,9 @@ func doConvert(l *log.Logger, w http.ResponseWriter, r *http.Request) error {
 		return e
 	}
 
-	ver := VERSION_300
+	ver := EPUB_VERSION_300
 	if r.FormValue("epub2") == "epub2" {
-		ver = VERSION_200
+		ver = EPUB_VERSION_200
 	}
 	if data, name, e := maker.GetResult(ver); e != nil {
 		return e

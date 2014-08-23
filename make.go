@@ -290,7 +290,7 @@ func (this *EpubMaker) SaveTo(outdir string, version int) error {
 
 	if len(outdir) != 0 {
 		_, s = filepath.Split(s)
-		s = filepath.Join(outdir, s) //"testbook.zip")
+		s = filepath.Join(outdir, s)
 	}
 
 	if e := this.book.Save(s, version); e != nil {
@@ -321,9 +321,9 @@ func RunMake() {
 	}
 
 	duokan := !GetArgumentFlagBool(os.Args[1:], "noduokan")
-	ver := VERSION_300
+	ver := EPUB_VERSION_300
 	if GetArgumentFlagBool(os.Args[1:], "epub2") {
-		ver = VERSION_200
+		ver = EPUB_VERSION_200
 	}
 
 	maker := NewEpubMaker(logger)

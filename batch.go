@@ -23,10 +23,10 @@ func runTask(input string, outdir string) {
 		folder VirtualFolder
 		tr     = &taskResult{input: input}
 		duokan = !GetArgumentFlagBool(os.Args[2:], "noduokan")
-		ver    = VERSION_300
+		ver    = EPUB_VERSION_300
 	)
 	if GetArgumentFlagBool(os.Args[2:], "epub2") {
-		ver = VERSION_200
+		ver = EPUB_VERSION_200
 	}
 	if folder, tr.e = OpenVirtualFolder(input); tr.e != nil {
 		logger.Printf("%s: failed to open source folder/file.\n", input)

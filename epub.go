@@ -18,9 +18,9 @@ const (
 	path_of_container_xml = "META-INF/container.xml"
 	path_of_cover_page    = "cover.html"
 
-	VERSION_NONE = iota // no version, pack all raw files into a zip package
-	VERSION_200         // epub version 2.0
-	VERSION_300         // epub version 3.0
+	EPUB_VERSION_NONE = iota // no version, pack all raw files into a zip package
+	EPUB_VERSION_200         // epub version 2.0
+	EPUB_VERSION_300         // epub version 3.0
 
 	epub_NORMAL_FILE      = 1 << iota // nomal files
 	epub_CONTENT_FILE                 // content files: the chapters
@@ -254,7 +254,7 @@ func (this *Epub) generateContentOpf(version int) []byte {
 		"	</metadata>\n" +
 		"	<manifest>\n" +
 		"		<item properties=\"nav\" id=\"ncx\" href=\"" + path_of_nav_xhtml + "\" media-type=\"application/xhtml+xml\"/>\n"
-	if version == VERSION_200 {
+	if version == EPUB_VERSION_200 {
 		format = "<?xml version='1.0' encoding='utf-8'?>\n" +
 			"<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"2.0\" unique-identifier=\"uuid_id\">\n" +
 			"	<metadata xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:opf=\"http://www.idpf.org/2007/opf\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n" +
@@ -293,7 +293,7 @@ func (this *Epub) generateContentOpf(version int) []byte {
 		)
 	}
 
-	if version == VERSION_200 {
+	if version == EPUB_VERSION_200 {
 		buf.WriteString("	</manifest>\n	<spine toc=\"ncx\">\n")
 	} else {
 		buf.WriteString("	</manifest>\n	<spine>\n")
@@ -451,7 +451,7 @@ func (this *Epub) Build(version int) ([]byte, error) {
 		return nil, e
 	}
 
-	if version != VERSION_NONE {
+	if version != EPUB_VERSION_NONE {
 		data := this.generateContainerXml()
 		if e := compressor.addFile(path_of_container_xml, data); e != nil {
 			return nil, e
@@ -460,7 +460,7 @@ func (this *Epub) Build(version int) ([]byte, error) {
 		if e := compressor.addFile(path_of_content_opf, data); e != nil {
 			return nil, e
 		}
-		if version == VERSION_200 {
+		if version == EPUB_VERSION_200 {
 			data = this.generateTocNcx()
 			if e := compressor.addFile(path_of_toc_ncx, data); e != nil {
 				return nil, e

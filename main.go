@@ -104,8 +104,7 @@ func removeUtf8Bom(data []byte) []byte {
 }
 
 func main() {
-	fmt.Println("makeepub v" + version)
-	fmt.Println("project home page: https://github.com/localvar/makeepub")
+	fmt.Println("makeepub v" + version + ", home page: https://github.com/localvar/makeepub")
 	CheckCommandLineArgumentCount(2)
 
 	AddCommandHandler("?", showUsage)

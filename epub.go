@@ -110,12 +110,15 @@ type File struct {
 }
 
 type Epub struct {
-	id     string
-	name   string
-	author string
-	cover  string // path of the cover image
-	duokan bool   // if duokan externsion is enabled
-	files  []*File
+	id          string
+	name        string
+	author      string
+	publisher   string
+	description string
+	language    string
+	cover       string // path of the cover image
+	duokan      bool   // if duokan externsion is enabled
+	files       []*File
 }
 
 func NewEpub() *Epub {
@@ -156,6 +159,30 @@ func (this *Epub) SetAuthor(author string) {
 	this.author = author
 }
 
+func (this *Epub) Publisher() string {
+	return this.publisher
+}
+
+func (this *Epub) SetPublisher(publisher string) {
+	this.publisher = publisher
+}
+
+func (this *Epub) Description() string {
+	return this.description
+}
+
+func (this *Epub) SetDescription(desc string) {
+	this.description = desc
+}
+
+func (this *Epub) Language() string {
+	return this.language
+}
+
+func (this *Epub) SetLanguage(lang string) {
+	this.language = lang
+}
+
 func (this *Epub) EnableDuokan(enable bool) {
 	this.duokan = enable
 }
@@ -183,7 +210,7 @@ func (this *Epub) AddFile(path string, data []byte) {
 	this.files = append(this.files, f)
 }
 
-func generateImagePage(path string) []byte {
+func generateImagePage(path, alt string) []byte {
 	path = filepath.ToSlash(path)
 	s := fmt.Sprintf(""+
 		"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"+
@@ -195,14 +222,14 @@ func generateImagePage(path string) []byte {
 		"<body>\n"+
 		"	<p><img alt=\"%s\" src=\"%s\"/></p>\n"+
 		"</body>\n"+
-		"</html>\n", path, path)
+		"</html>\n", alt, path)
 	return []byte(s)
 }
 
-func (this *Epub) AddFullScreenImage(path string) {
+func (this *Epub) AddFullScreenImage(path, alt string) {
 	f := &File{
 		Path: fmt.Sprintf("full_scrn_img_%04d.html", len(this.files)),
-		Data: generateImagePage(path),
+		Data: generateImagePage(path, alt),
 		Attr: epub_CONTENT_FILE | epub_FULL_SCREEN_PAGE,
 	}
 	this.files = append(this.files, f)
@@ -242,40 +269,51 @@ func (this *Epub) generateContainerXml() []byte {
 
 func (this *Epub) generateContentOpf(version int) []byte {
 	buf := new(bytes.Buffer)
-	format := "<?xml version='1.0' encoding='utf-8'?>\n" +
-		"<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"uuid_id\">\n" +
-		"	<metadata xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:opf=\"http://www.idpf.org/2007/opf\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n" +
-		"		<dc:language>zh</dc:language>\n" +
-		"		<dc:creator>%s</dc:creator>\n" +
-		"		<meta name=\"cover\" content=\"%s\"/>\n" +
-		"		<meta property=\"dcterms:modified\">%s</meta>\n" +
-		"		<dc:title>%s</dc:title>\n" +
-		"		<dc:identifier id=\"uuid_id\">%s</dc:identifier>\n" +
-		"	</metadata>\n" +
-		"	<manifest>\n" +
-		"		<item properties=\"nav\" id=\"ncx\" href=\"" + path_of_nav_xhtml + "\" media-type=\"application/xhtml+xml\"/>\n"
+
+	buf.WriteString("<?xml version='1.0' encoding='utf-8'?>\n")
 	if version == EPUB_VERSION_200 {
-		format = "<?xml version='1.0' encoding='utf-8'?>\n" +
-			"<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"2.0\" unique-identifier=\"uuid_id\">\n" +
-			"	<metadata xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:opf=\"http://www.idpf.org/2007/opf\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n" +
-			"		<dc:language>zh</dc:language>\n" +
-			"		<dc:creator>%s</dc:creator>\n" +
-			"		<meta name=\"cover\" content=\"%s\"/>\n" +
-			"		<dc:date>%s</dc:date>\n" +
-			"		<dc:title>%s</dc:title>\n" +
-			"		<dc:identifier id=\"uuid_id\">%s</dc:identifier>\n" +
-			"	</metadata>\n" +
-			"	<manifest>\n" +
-			"		<item id=\"ncx\" href=\"" + path_of_toc_ncx + "\" media-type=\"application/x-dtbncx+xml\"/>\n"
+		buf.WriteString("<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"2.0\" unique-identifier=\"uuid_id\">\n")
+	} else {
+		buf.WriteString("<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"uuid_id\">\n")
+	}
+	buf.WriteString("	<metadata xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:opf=\"http://www.idpf.org/2007/opf\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n")
+
+	fmt.Fprintf(buf, "		<dc:identifier id=\"uuid_id\">%s</dc:identifier>\n"+
+		"		<dc:title>%s</dc:title>\n"+
+		"		<dc:language>%s</dc:language>\n"+
+		"		<meta name=\"cover\" content=\"%s\"/>\n",
+		this.Id(),
+		this.Name(),
+		this.Language(),
+		this.cover,
+	)
+
+	if this.duokan || version == EPUB_VERSION_200 {
+		fmt.Fprintf(buf, "		<dc:creator opf:role=\"aut\">%s</dc:creator>\n", this.Author())
+	} else {
+		fmt.Fprintf(buf, "		<dc:creator>%s</dc:creator>\n", this.Author())
 	}
 
-	fmt.Fprintf(buf, format,
-		this.Author(),
-		this.cover,
-		time.Now().UTC().Format(time.RFC3339),
-		this.Name(),
-		this.Id(),
-	)
+	if len(this.Publisher()) > 0 {
+		fmt.Fprintf(buf, "<dc:publisher>%s</dc:publisher>\n", this.Publisher())
+	}
+
+	if len(this.Description()) > 0 {
+		fmt.Fprintf(buf, "<dc:description>%s</dc:description>\n", this.Description())
+	}
+
+	format := "		<meta property=\"dcterms:modified\">%s</meta>\n"
+	if version == EPUB_VERSION_200 {
+		format = "		<dc:date>%s</dc:date>\n"
+	}
+	fmt.Fprintf(buf, format, time.Now().UTC().Format(time.RFC3339))
+	buf.WriteString("	</metadata>\n	<manifest>\n")
+
+	if version == EPUB_VERSION_200 {
+		buf.WriteString("		<item id=\"ncx\" href=\"" + path_of_toc_ncx + "\" media-type=\"application/x-dtbncx+xml\"/>\n")
+	} else {
+		buf.WriteString("		<item properties=\"nav\" id=\"ncx\" href=\"" + path_of_nav_xhtml + "\" media-type=\"application/xhtml+xml\"/>\n")
+	}
 
 	if len(this.cover) > 0 {
 		buf.WriteString("		<item href=\"" + path_of_cover_page + "\" id=\"cover\" media-type=\"application/xhtml+xml\"/>\n")
@@ -472,7 +510,7 @@ func (this *Epub) Build(version int) ([]byte, error) {
 			}
 		}
 		if len(this.cover) > 0 {
-			data = generateImagePage(this.cover)
+			data = generateImagePage(this.cover, "cover")
 			if e := compressor.addFile(path_of_cover_page, data); e != nil {
 				return nil, e
 			}

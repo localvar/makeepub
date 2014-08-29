@@ -62,18 +62,21 @@ Below is a brief introduction of the format of the mandatory files, more informa
 
 #### book.ini
 
-此文件基于通用的ini文件格式，每一行的行首不能有空白字符，以'#'开始的行将被视为注释，并被忽略。
+此文件基于通用的ini文件格式，以'='开始的行将被合并到上一行，以'#'开始的行将被视为注释，并被忽略。
 
-This file is based on the common *INI* file format, blank characters are not allowed at the beginning of a line, and line start with '#' will be regard as comment and ignored.
+This file is based on the common *INI* file format, line start with '=' will be concatenated to previous line, and line start with '#' will be regard as comment and ignored.
 
-这个文件包含两个节， *book* 和 *output*，book节指定书籍信息，output节指定输出文件信息。下面的列表将介绍其中每一个选项的作用。
+这个文件包含三个节， *book* 、 *split* 和 *output*，book节指定书籍信息，split节指定如何进行章节拆分，output节指定输出文件信息。下面的列表将介绍其中每一个选项的作用。
 
-This file contains two sections: *book* and *output*. section *book* is for the book information, while section *output* is for the output file. The below list explains the usage of each option.
+This file contains three sections: *book*, *split* and *output*. section *book* is for the book information, *split* determines how chapters are split, and section *output* is for the output file. The below list explains the usage of each option.
 
 + Book节(Section Book)
 	- **name**: 书名，如果没有提供会导致程序输出一个警告信息(Name of the book, if not specified, the tool will generate a warning)
 	- **author**:  作者，如果没有提供会导致程序输出一个警告信息(Author of the book, if not specified, the tool will generate a warning)
 	- **id**: 书的唯一标识，在正规出版的书中，它应该是ISBN编号，如果您没有指定，程序将随机生成一个(The unique identifier, it is the ISBN for a published book. If not specified, the tool will generate a random string for it.)
+	- **publisher**: 出版社(The publisher of the book.)
+	- **description**: 书籍简介(A brief introduction of the book.)
+	- **language**: 语言，默认 *zh-CN* ，即简体中文(Language of the book, *zh-CN* by default, that's Chinese Simplified.)
 	- **toc**: 一个 *1* 到 *6* 之间的整数，用于指定目录的粒度，默认为 *2*，即根据 *h1*  和 *h2* 标签生成目录(An integer between *1* and *6*, specifis how to TOC is generated. Default value is *2*, which means the TOC is based on *h1* and *h2* tags)
 
 + Split节(section Split)
@@ -91,6 +94,10 @@ Below is an example for book.ini.
 	name=My First eBook
 	author=Super Man
 	id=ISBN XXXXXXXXXXXX
+	publisher=My Own Press
+	description= 这是本书的简介，它占用了多行。 This is the description
+	           = of the book, and it has more than one line.
+	language=zh-CN
 	toc=2
 	
 	[split]
@@ -107,19 +114,10 @@ Below is an example for book.ini.
 
 This is a standard html file. The tool will split this file into chapter files based on *split* setting, and generate TOC based on the *toc* setting. Content before \<body\> tag will be copied to the beginning of each chapter file.
 
-为尽量避免拆分出来的文件只包含章节标题，在 *AtLevel* 等于 *2* 时，如果一个 *h1* 标签和后续的 *h2* 标签之间没有任何其他内容的话， *h2* 标签的章节将被合并到 *h1* 标签的章节中。当 *AtLevel* 是其它大于 *1* 的值时，处理方法类似。
-
-To avoid a chapter file only has a chapter title, when *AtLevel* is *2*, if there's no other content between a *h1* tag and its successor *h2* tag, the chapter of the *h2* tag is merged into the chapter of *h1* tag. And similiar split method is used when *AtLevel* is greater than *2*.
-
-如果 *ByDiv* 为“真”，程序会把 `<div class="makeepub-chapter"></div>` 标签作为一个章节的开始，章节标题和级别则由这个div的兄弟标签中的第一个header标签决定。这种模式主要在需要对章节标题加以修饰的时候使用，比如在标题前添加一个横幅图片等。
-
-If *ByDiv* is *true*, tags `<div class="makeepub-chapter"></div>` is used as the start of a chapter instead of the header tags. Chapter title and level is determined by the first sibling header tag next to this div tag. The mode is useful if chapter title decoration is required, for example: add a banner image before the title.
-
-如果一个 *img* 标签符合以下情况，它将会全屏显示 (An image is displayed as full screen it its *img* tag meet all below conditions):
+如果其中的某个 *img* 标签符合以下情况，它将会全屏显示 (An image is displayed as full screen if its *img* tag meet all below conditions):
 + 打开了多看扩展 (DuoKan externsion is enabled)
 + *img* 标签的父级是 *body* 标签 (The parent of *img* tag is *body* tag)
 + *img* 的 *class* 属性等于 *duokan-fullscreen* (The value of the *class* property of the *img* tag is *duokan-fullscreen*)
-
 
 #### cover.png/jpg/gif
 
@@ -131,8 +129,37 @@ An image file which will be used to create the book cover. It can be 'cover.png'
 
 The file name of the cover page is 'cover.html', please don't use this name for any other purpose, otherwise the behavior of this tool is not defined.
 
+### 2.2 章节拆分(chapter split)
 
-### 2.2 输出文件的路径(path of the output file)
+如果 *ByDiv* 为“真”，程序会把一些特定的 *div* 标签作为章节的开始并进行章节拆分。这种模式主要在需要对章节标题加以修饰的时候使用，比如在标题前添加一个横幅图片等。这种模式又分为两种情况。
+
+If *ByDiv* is *true*, *div* of a special pattern is regarded as the beginning of chapters, and chapters are split based on them. The mode is useful if chapter title decoration is required, for example: add a banner image before the title. And there are 2 scenarios in this mode.
+
+1) 当 *div* 是`<div class="makeepub-chapter"></div>`时，章节标题和级别由这个 *div* 的兄弟标签中的第一个header标签决定。
+
+1) When the *div* is `<div class="makeepub-chapter"></div>`, chapter title and level is determined by the first sibling header tag next to this div tag.
+
+2) 当 *div* 是 `<div class="makeepub-chapter-levelX">标题</div>` 时（其中 *X* 是 1--6 之间的数字），章节标题是 *标题* ，章节级别是 *X* 。
+
+2) When the *div* is like `<div class="makeepub-chapter-levelX">Title</div>`, where *X* is a number between *1* and *6*, the chapter title is *Title* and level of the chapter is *X*.
+
+注意1： *div* 必须通过 `</div>` 关闭，类似 `<div class="makeepub-chapter"/>` 的形式会导致拆分错误。
+
+NOTE1: The *div* must be closed by `</div>`, it may lead to a wrong split if the tas is like `<div class="makeepub-chapter"/>`.
+
+注意2： *div* 标签的所有子标签都会被删除，不会出现在最终的文件中，也不会被显示。
+
+NOTE2: All child tags of the *div* tag will be removed, will not appear in the final file and will not be displayed.
+
+如果 *ByDiv* 为“假”，程序会根据 *\<h1\>* ， *\<h2\>* 等标签进行章节拆分。
+
+If *ByDiv* is *false*, chapters are split by tags *\<h1\>* ， *\<h2\>* ...
+
+为尽量避免拆分出来的文件只包含章节标题，如果某个标题和其子标题之间没有任何正文，即使按照 *AtLevel* 的设置应该被拆分，这两个标题所在的章节也会被生成在同一个章节文件中。
+
+To avoid a chapter file only has a chapter title, when there's no text between a title and its child title, the container chapters of these two titles will be output to one chapter file, no matter what the value of option *AtLevel* is.
+
+### 2.3 输出文件的路径(path of the output file)
 
 输出文件的路径取决于 *book.ini* 中 *output* 节的 *path* 选项，命令行中的 *OutputFolder* 参数，以及程序的当前工作文件夹。
 

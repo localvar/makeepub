@@ -17,14 +17,12 @@ func ParseIni(reader io.Reader) (*Config, error) {
 	var (
 		reComment = regexp.MustCompile("^[ \t]*#.*$")
 		reSection = regexp.MustCompile("^[ \t]*\\[([^\\]]+)\\][ \t]*$")
-		reKey     = regexp.MustCompile("^[ \t]*([^ \t=]+)[ \t]*=[ \t]*([^ \t]*)[ \t]*$")
+		reKey     = regexp.MustCompile("^([^=]*)=[ \t]*([^ \t]*)[ \t]*$")
 	)
 
-	section := "/"
-	cfg := &Config{data: make(map[string]string)}
+	section, lastKey, cfg := "/", "", make(map[string]string)
+	firstLine, scanner := true, bufio.NewScanner(reader)
 
-	firstLine := true
-	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		s := scanner.Bytes()
 		if firstLine {
@@ -36,14 +34,22 @@ func ParseIni(reader io.Reader) (*Config, error) {
 			continue
 		}
 
-		if m := reSection.FindSubmatch(s); m != nil {
+		m := reSection.FindSubmatch(s)
+		if m != nil {
 			section = "/" + string(m[1])
 			continue
 		}
 
-		if m := reKey.FindSubmatch(s); m != nil {
-			k := strings.ToLower(section + "/" + string(m[1]))
-			cfg.data[k] = string(m[2])
+		if m = reKey.FindSubmatch(s); m == nil {
+			continue
+		}
+
+		k := strings.ToLower(strings.TrimSpace(string(m[1])))
+		if len(k) > 0 {
+			lastKey = section + "/" + k
+			cfg[lastKey] = string(m[2])
+		} else if len(lastKey) > 0 {
+			cfg[lastKey] = cfg[lastKey] + string(m[2])
 		}
 	}
 
@@ -51,7 +57,7 @@ func ParseIni(reader io.Reader) (*Config, error) {
 		return nil, e
 	}
 
-	return cfg, nil
+	return &Config{data: cfg}, nil
 }
 
 func OpenIniFile(path string) (*Config, error) {

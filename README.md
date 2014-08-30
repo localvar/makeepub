@@ -80,7 +80,7 @@ This file contains three sections: *book*, *split* and *output*. section *book* 
 	- **toc**: 一个 *1* 到 *6* 之间的整数，用于指定目录的粒度，默认为 *2*，即根据 *h1*  和 *h2* 标签生成目录(An integer between *1* and *6*, specifis how to TOC is generated. Default value is *2*, which means the TOC is based on *h1* and *h2* tags)
 
 + Split节(section Split)
-	- **AtLevel**: 一个 *1* 到 *6* 之间的整数，用于指定章节拆分的粒度，默认为 *1*，即只根据 *h1* 标签拆分章节(An integer between *1* and *6*, specifis how to split the html file into chapters. Default value is *1*, which means the split is based on the *h1* tags)
+	- **AtLevel**: 一个 *0* 到 *6* 之间的整数，用于指定章节拆分的粒度，默认为 *1*，即只根据 *h1* 标签拆分章节(An integer between *0* and *6*, specifis how to split the html file into chapters. Default value is *1*, which means the split is based on the *h1* tags)
 	- **ByDiv**: 值为“真（true）”时将根据特定的 *div* 标签拆分章节，否则根据 *\<h1\>* ， *\<h2\>* 等标签拆分 ，默认值是“假（false）”。(When set to *true*, split chapters by special *div* tags, otherwise split by  *\<h1\>* ， *\<h2\>* ... tags. Default is *false* )
 	
 + Output节(Section Output)
@@ -139,9 +139,9 @@ If *ByDiv* is *true*, *div* of a special pattern is regarded as the beginning of
 
 1) When the *div* is `<div class="makeepub-chapter"></div>`, chapter title and level is determined by the first sibling header tag next to this div tag.
 
-2) 当 *div* 是 `<div class="makeepub-chapter-levelX">标题</div>` 时（其中 *X* 是 1--6 之间的数字），章节标题是 *标题* ，章节级别是 *X* 。
+2) 当 *div* 是 `<div class="makeepub-chapter-levelX">标题</div>` 时（其中 *X* 是 0--6 之间的数字），章节标题是 *标题* ，章节级别是 *X* ；不过，如果 *X* 是 *0* ，那么这个 *div* 所代表的章节不会出现在目录中。
 
-2) When the *div* is like `<div class="makeepub-chapter-levelX">Title</div>`, where *X* is a number between *1* and *6*, the chapter title is *Title* and level of the chapter is *X*.
+2) When the *div* is like `<div class="makeepub-chapter-levelX">Title</div>`, where *X* is a number between *0* and *6*, the chapter title is *Title* and level of the chapter is *X*. But, if *X* is zero, the chapter of this div will not appear in TOC.
 
 注意1： *div* 必须通过 `</div>` 关闭，类似 `<div class="makeepub-chapter"/>` 的形式会导致拆分错误。
 
@@ -151,9 +151,9 @@ NOTE1: The *div* must be closed by `</div>`, it may lead to a wrong split if the
 
 NOTE2: All child tags of the *div* tag will be removed, will not appear in the final file and will not be displayed.
 
-如果 *ByDiv* 为“假”，程序会根据 *\<h1\>* ， *\<h2\>* 等标签进行章节拆分。
+如果 *ByDiv* 为“假”，程序会根据 *\<h1\>* ， *\<h2\>* 等标签进行章节拆分。特别的，如果 *AtLevel* 是 *0* ，那么只会生成目录，不会拆分章节文件。
 
-If *ByDiv* is *false*, chapters are split by tags *\<h1\>* ， *\<h2\>* ...
+If *ByDiv* is *false*, chapters are split by tags *\<h1\>* ， *\<h2\>* ... Note if *AtLevel* is zero, will only generate TOC, but not split chapters.
 
 为尽量避免拆分出来的文件只包含章节标题，如果某个标题和其子标题之间没有任何正文，即使按照 *AtLevel* 的设置应该被拆分，这两个标题所在的章节也会被生成在同一个章节文件中。
 

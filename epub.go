@@ -276,7 +276,7 @@ func (this *Epub) generateContentOpf(version int) []byte {
 	} else {
 		buf.WriteString("<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"uuid_id\">\n")
 	}
-	buf.WriteString("	<metadata xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:opf=\"http://www.idpf.org/2007/opf\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n")
+	buf.WriteString("	<metadata xmlns:opf=\"http://www.idpf.org/2007/opf\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n")
 
 	fmt.Fprintf(buf, "		<dc:identifier id=\"uuid_id\">%s</dc:identifier>\n"+
 		"		<dc:title>%s</dc:title>\n"+
@@ -288,10 +288,13 @@ func (this *Epub) generateContentOpf(version int) []byte {
 		this.cover,
 	)
 
-	if this.duokan || version == EPUB_VERSION_200 {
+	if version == EPUB_VERSION_200 {
 		fmt.Fprintf(buf, "		<dc:creator opf:role=\"aut\">%s</dc:creator>\n", this.Author())
+		fmt.Fprintf(buf, "		<dc:date>%s</dc:date>\n", time.Now().UTC().Format(time.RFC3339))
 	} else {
-		fmt.Fprintf(buf, "		<dc:creator>%s</dc:creator>\n", this.Author())
+		fmt.Fprintf(buf, "		<dc:creator id=\"creator\">%s</dc:creator>\n", this.Author())
+		buf.WriteString("		<meta refines=\"#creator\" property=\"role\" scheme=\"marc:relators\" id=\"role\">aut</meta>\n")
+		fmt.Fprintf(buf, "		<meta property=\"dcterms:modified\">%s</meta>\n", time.Now().UTC().Format(time.RFC3339))
 	}
 
 	if len(this.Publisher()) > 0 {
@@ -302,11 +305,6 @@ func (this *Epub) generateContentOpf(version int) []byte {
 		fmt.Fprintf(buf, "<dc:description>%s</dc:description>\n", this.Description())
 	}
 
-	format := "		<meta property=\"dcterms:modified\">%s</meta>\n"
-	if version == EPUB_VERSION_200 {
-		format = "		<dc:date>%s</dc:date>\n"
-	}
-	fmt.Fprintf(buf, format, time.Now().UTC().Format(time.RFC3339))
 	buf.WriteString("	</metadata>\n	<manifest>\n")
 
 	if version == EPUB_VERSION_200 {

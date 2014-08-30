@@ -12,7 +12,11 @@ import (
 	"code.google.com/p/go.net/html"
 )
 
-const highest_level = 6
+const (
+	invalid_level = -1
+	lowest_level  = 6
+	unknown_level = lowest_level + 1
+)
 
 type EpubMaker struct {
 	folder   VirtualFolder
@@ -98,47 +102,47 @@ func findAttrByName(node *html.Node, name string) *html.Attribute {
 
 func getHeaderNodeLevel(node *html.Node) int {
 	if len(node.Data) != 2 || node.Data[0] != 'h' {
-		return -1
+		return invalid_level
 	}
 
-	if level := int(node.Data[1] - '0'); level > 0 && level <= highest_level {
+	if level := int(node.Data[1] - '0'); level > 0 && level <= lowest_level {
 		return level
 	}
 
-	return -1
+	return invalid_level
 }
 
 func getDivNodeLevel(node *html.Node) int {
 	if node.Data != "div" {
-		return -1
+		return invalid_level
 	}
 
 	attr := findAttrByName(node, "class")
 	if attr == nil {
-		return -1
+		return invalid_level
 	}
 
 	if attr.Val == "makeepub-chapter" {
-		return 0
+		return unknown_level
 	}
 
 	s := attr.Val[len("makeepub-chapter-level"):]
 	if len(s) != 1 {
-		return -1
+		return invalid_level
 	}
 
-	if level := int(s[0] - '0'); level > 0 && level <= highest_level {
+	if level := int(s[0] - '0'); level >= 0 && level <= lowest_level {
 		return level
 	}
 
-	return -1
+	return invalid_level
 }
 
 func checkNewDivChapter(node *html.Node) (int, string) {
 	level := getDivNodeLevel(node)
 
-	if level == -1 {
-		return -1, ""
+	if level == invalid_level {
+		return invalid_level, ""
 	}
 
 	// remove all child nodes of this node, but save the first child
@@ -146,7 +150,7 @@ func checkNewDivChapter(node *html.Node) (int, string) {
 	cn := node.FirstChild
 	node.FirstChild, node.LastChild = nil, nil
 
-	if level > 0 {
+	if level != unknown_level {
 		title := ""
 		if cn != nil {
 			title = cn.Data
@@ -158,15 +162,15 @@ func checkNewDivChapter(node *html.Node) (int, string) {
 		if n.Type != html.ElementNode {
 			continue
 		}
-		if getDivNodeLevel(n) != -1 {
-			return -1, ""
+		if getDivNodeLevel(n) != invalid_level {
+			return invalid_level, ""
 		}
-		if level = getHeaderNodeLevel(n); level != -1 {
+		if level = getHeaderNodeLevel(n); level != invalid_level {
 			return level, n.FirstChild.Data
 		}
 	}
 
-	return -1, ""
+	return invalid_level, ""
 }
 
 func (this *EpubMaker) checkNewChapter(node *html.Node, byDiv bool) *Chapter {
@@ -174,13 +178,13 @@ func (this *EpubMaker) checkNewChapter(node *html.Node, byDiv bool) *Chapter {
 		return nil
 	}
 
-	level, title := -1, ""
+	level, title := invalid_level, ""
 	if byDiv {
 		level, title = checkNewDivChapter(node)
-	} else if level = getHeaderNodeLevel(node); level != -1 {
+	} else if level = getHeaderNodeLevel(node); level != invalid_level {
 		title = node.FirstChild.Data
 	}
-	if level == -1 {
+	if level == invalid_level {
 		return nil
 	}
 
@@ -262,7 +266,15 @@ func (this *EpubMaker) splitChapter(duokan bool) error {
 	}
 
 	toc := this.cfg.GetInt("/book/toc", 2)
+	if toc < 1 || toc > lowest_level {
+		this.writeLog("option 'toc' is invalid, will use default value 2.")
+		toc = 2
+	}
 	split := this.cfg.GetInt("/split/AtLevel", 1)
+	if split < 0 || split > lowest_level {
+		this.writeLog("option 'AtLevel' is invalid, will use default value 1.")
+		split = 1
+	}
 	byDiv := this.cfg.GetBool("/split/ByDiv", false)
 
 	title := findNodeByName(root, "title").FirstChild
@@ -270,7 +282,7 @@ func (this *EpubMaker) splitChapter(duokan bool) error {
 	body := resetBody(nodes)
 	chapters := make([]Chapter, 0)
 
-	lastLevel := highest_level + 1
+	lastLevel := unknown_level
 
 	for node := nodes.FirstChild; node != nil; node = nodes.FirstChild {
 		if isBlankNode(node) {
@@ -285,14 +297,14 @@ func (this *EpubMaker) splitChapter(duokan bool) error {
 				body = resetBody(body)
 			}
 			this.book.AddFullScreenImage(path, alt)
-			lastLevel = highest_level + 1
+			lastLevel = unknown_level
 			nodes.RemoveChild(node)
 			continue
 		}
 
 		c := this.checkNewChapter(node, byDiv)
 		if c == nil {
-			lastLevel = highest_level + 1
+			lastLevel = unknown_level
 			nodes.RemoveChild(node)
 			body.AppendChild(node)
 			continue
@@ -311,7 +323,8 @@ func (this *EpubMaker) splitChapter(duokan bool) error {
 			lastLevel = c.Level
 		}
 
-		if c.Level <= toc && len(c.Title) > 0 {
+		// level 0 is only for chapter split, will not be added to chapter list
+		if c.Level > 0 && c.Level <= toc && len(c.Title) > 0 {
 			chapters = append(chapters, *c)
 		}
 

@@ -121,9 +121,10 @@ type Epub struct {
 	files       []*File
 }
 
-func NewEpub() *Epub {
+func NewEpub(duokan bool) *Epub {
 	this := new(Epub)
 	this.files = make([]*File, 0, 256)
+	this.duokan = duokan
 	return this
 }
 
@@ -183,8 +184,8 @@ func (this *Epub) SetLanguage(lang string) {
 	this.language = lang
 }
 
-func (this *Epub) EnableDuokan(enable bool) {
-	this.duokan = enable
+func (this *Epub) Duokan() bool {
+	return this.duokan
 }
 
 func (this *Epub) SetCoverImage(path string) {
@@ -226,11 +227,12 @@ func generateImagePage(path, alt string) []byte {
 	return []byte(s)
 }
 
-func (this *Epub) AddFullScreenImage(path, alt string) {
+func (this *Epub) AddFullScreenImage(path, alt string, chapters []Chapter) {
 	f := &File{
-		Path: fmt.Sprintf("full_scrn_img_%04d.html", len(this.files)),
-		Data: generateImagePage(path, alt),
-		Attr: epub_CONTENT_FILE | epub_FULL_SCREEN_PAGE,
+		Path:     fmt.Sprintf("full_scrn_img_%04d.html", len(this.files)),
+		Data:     generateImagePage(path, alt),
+		Attr:     epub_CONTENT_FILE | epub_FULL_SCREEN_PAGE,
+		Chapters: chapters,
 	}
 	this.files = append(this.files, f)
 }

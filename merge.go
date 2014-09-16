@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"code.google.com/p/go.net/html"
+	"code.google.com/p/go.net/html/atom"
 )
 
 func mergeHtml(folder VirtualFolder, names []string) []byte {
@@ -25,7 +26,7 @@ func mergeHtml(folder VirtualFolder, names []string) []byte {
 			logger.Fatalf("error parsing '%s'.\n", name)
 		}
 
-		b := findChildNode(doc, "body")
+		b := findChild(doc, atom.Body)
 		if b == nil {
 			logger.Fatalf("'%s' has no 'body' element.\n", name)
 		}

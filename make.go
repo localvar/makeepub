@@ -11,12 +11,19 @@ import (
 	"strings"
 
 	"code.google.com/p/go.net/html"
+	"code.google.com/p/go.net/html/atom"
 )
 
 const (
-	invalid_level = -1
-	lowest_level  = 6
-	unknown_level = lowest_level + 1
+	lowest_level = iota + 6
+	unknown_level
+
+	duokan_fullscreen    = "duokan-fullscreen"
+	makeepub_chapter_id  = "makeepub-chapter-%d"
+	makeepub_chapter     = "makeepub-chapter"
+	makeepub_not_chapter = "makeepub-not-chapter"
+	data_chapter_level   = "data-chapter-level"
+	data_chapter_title   = "data-chapter-title"
 )
 
 type EpubMaker struct {
@@ -27,7 +34,9 @@ type EpubMaker struct {
 	chapter_id  int
 	toc         int
 	split       int
-	bydiv       int
+	by_header   int
+	body        *html.Node // 'body' element of the original html
+	skip        bool       // skip next header (<h1>,<h2>...)?
 }
 
 func NewEpubMaker(logger *log.Logger) *EpubMaker {
@@ -40,7 +49,42 @@ func (this *EpubMaker) parseBook() (*html.Node, error) {
 		return nil, e
 	}
 	defer f.Close()
-	return html.Parse(f)
+	root, e := html.Parse(f)
+	if e != nil {
+		return root, e
+	}
+
+	e = fmt.Errorf("invalid 'book.html'")
+	if root.Type != html.DocumentNode {
+		return root, e
+	}
+
+	Html := findDirectChild(root, atom.Html)
+	if Html == nil {
+		return root, e
+	}
+
+	// remove any element after 'html', make sure 'html' is the last
+	// child of 'root'
+	for node := Html.NextSibling; node != nil; node = Html.NextSibling {
+		root.RemoveChild(node)
+	}
+
+	head := findDirectChild(Html, atom.Head)
+	body := findDirectChild(Html, atom.Body)
+	if head == nil || body == nil {
+		return root, e
+	}
+
+	// make sure 'head' is the first child of 'html' and 'body' is the last
+	// child, and remove all other children if exist
+	for node := Html.FirstChild; node != nil; node = Html.FirstChild {
+		Html.RemoveChild(node)
+	}
+	Html.AppendChild(head)
+	Html.AppendChild(body)
+
+	return root, nil
 }
 
 func (this *EpubMaker) addFilesToBook() error {
@@ -70,72 +114,56 @@ func (this *EpubMaker) addFilesToBook() error {
 	return this.folder.Walk(walk)
 }
 
-func getHeaderNodeLevel(node *html.Node) int {
+func checkHeaderNode(node *html.Node) *Chapter {
 	if len(node.Data) != 2 || node.Data[0] != 'h' {
-		return invalid_level
+		return nil
 	}
 
 	level := int(node.Data[1] - '0')
 	if level <= 0 || level > lowest_level {
-		return invalid_level
+		return nil
 	}
 
-	if hasClass(node, "makeepub-not-chapter") {
-		return invalid_level
+	title := ""
+	if attr := findAttribute(node, data_chapter_title); attr != nil {
+		title = attr.Val
+	} else if node.FirstChild != nil {
+		title = node.FirstChild.Data
 	}
-
-	return level
+	return &Chapter{Level: level, Title: title}
 }
 
-func getNonHeaderNodeLevel(node *html.Node) int {
-	attr := findAttribute(node, "class")
-	if attr == nil {
-		return invalid_level
+func (this *EpubMaker) checkChapterNode(node *html.Node) *Chapter {
+	if !hasClass(node, makeepub_chapter) {
+		return nil
 	}
 
-	for _, class := range strings.Fields(attr.Val) {
-		if class == "makeepub-chapter" {
-			return unknown_level
+	// if it has the 'level' attribute, it should have 'title' attribute also
+	if attr := findAttribute(node, data_chapter_level); attr != nil {
+		level, e := strconv.Atoi(attr.Val)
+		if e != nil || level < 0 || level > lowest_level {
+			this.writeLog("invalid chapter level '" + attr.Val + "', ignored.")
+			return nil
 		}
-		if !strings.HasPrefix(class, "makeepub-chapter-level") {
-			continue
-		}
-		level, e := strconv.Atoi(class[len("makeepub-chapter-level"):])
-		if level >= 0 && level <= lowest_level && e == nil {
-			return level
-		}
+		title := getAttributeValue(node, data_chapter_title, "")
+		return &Chapter{Level: level, Title: title}
 	}
 
-	return invalid_level
-}
-
-func checkNonHeaderChapter(node *html.Node) (int, string) {
-	level := getNonHeaderNodeLevel(node)
-
-	if level == invalid_level {
-		return invalid_level, ""
-	}
-
-	if level != unknown_level {
-		title := getAttributeValue(node, "title", "")
-		removeAttribute(node, "title")
-		return level, title
-	}
-
-	for n := node.NextSibling; n != nil; n = n.NextSibling {
+	// try to find next 'header' element for level & title
+	for n := this.body.FirstChild; n != nil; n = n.NextSibling {
 		if n.Type != html.ElementNode {
 			continue
 		}
-		if getNonHeaderNodeLevel(n) != invalid_level {
-			return invalid_level, ""
+		if hasClass(n, makeepub_chapter) {
+			return nil
 		}
-		if level = getHeaderNodeLevel(n); level != invalid_level {
-			addClass(n, "makeepub-not-chapter")
-			return level, n.FirstChild.Data
+		if c := checkHeaderNode(n); c != nil {
+			this.skip = true
+			return c
 		}
 	}
 
-	return invalid_level, ""
+	return nil
 }
 
 func (this *EpubMaker) checkNewChapter(node *html.Node) *Chapter {
@@ -143,45 +171,50 @@ func (this *EpubMaker) checkNewChapter(node *html.Node) *Chapter {
 		return nil
 	}
 
-	level, title := invalid_level, ""
-	if this.bydiv > 0 {
-		level, title = checkNonHeaderChapter(node)
-	} else if level = getHeaderNodeLevel(node); level != invalid_level {
-		title = node.FirstChild.Data
-	}
-	if level == invalid_level {
-		return nil
-	}
-
-	id := findAttribute(node, "id")
-	if id == nil {
-		node.Attr = append(node.Attr, html.Attribute{Key: "id"})
-		id = &node.Attr[len(node.Attr)-1]
-	}
-	if len(id.Val) == 0 {
-		id.Val = fmt.Sprintf("makeepub-chapter-%d", this.chapter_id)
-		this.chapter_id++
+	var c *Chapter = nil
+	if c = this.checkChapterNode(node); c == nil {
+		if c = checkHeaderNode(node); c == nil {
+			return nil
+		}
+		if this.skip {
+			this.skip = false
+			return nil
+		}
+		if c.Level < this.by_header || hasClass(node, makeepub_not_chapter) {
+			return nil
+		}
 	}
 
-	return &Chapter{
-		Level: level,
-		Title: strings.TrimSpace(title),
-		Link:  "#" + id.Val,
+	// only chapters in TOC need 'id' to generate Link
+	if c.Level <= this.toc {
+		id := findAttribute(node, "id")
+		if id == nil {
+			node.Attr = append(node.Attr, html.Attribute{Key: "id"})
+			id = &node.Attr[len(node.Attr)-1]
+		}
+		if len(id.Val) == 0 {
+			id.Val = fmt.Sprintf(makeepub_chapter_id, this.chapter_id)
+			this.chapter_id++
+		}
+		c.Link = "#" + id.Val
 	}
+
+	c.Title = strings.TrimSpace(c.Title)
+	return c
 }
 
 func (this *EpubMaker) checkFullScreenImage(node *html.Node) (string, string) {
 	if !this.book.Duokan() {
 		return "", ""
 	}
-	if node.Type != html.ElementNode || node.Data != "img" {
+	if node.Type != html.ElementNode || node.DataAtom != atom.Img {
 		return "", ""
 	}
 	fs, src, alt := false, "", ""
 	for i := 0; i < len(node.Attr); i++ {
 		attr := &node.Attr[i]
 		if attr.Key == "class" {
-			fs = containsField(attr.Val, "duokan-fullscreen")
+			fs = containsField(attr.Val, duokan_fullscreen)
 		} else if attr.Key == "src" {
 			src = attr.Val
 		} else if attr.Key == "alt" {
@@ -200,35 +233,31 @@ func (this *EpubMaker) splitChapter() error {
 		return e
 	}
 
-	title := findChildNode(root, "title").FirstChild
-	nodes := findChildNode(root, "body")
-	body := resetBody(nodes)
+	this.body = root.LastChild.LastChild
+	body := resetBody(this.body)
 	chapters := make([]Chapter, 0)
-
 	lastLevel := unknown_level
 
-	for node := nodes.FirstChild; node != nil; node = nodes.FirstChild {
-		if isBlankNode(node) {
-			nodes.RemoveChild(node)
-			continue
-		}
+	for node := this.body.FirstChild; node != nil; node = this.body.FirstChild {
+		this.body.RemoveChild(node)
 
-		if path, alt := this.checkFullScreenImage(node); len(path) > 0 {
-			if body.FirstChild != nil {
-				this.saveChapter(root, chapters)
-				chapters = make([]Chapter, 0)
-				body = resetBody(body)
-			}
-			this.book.AddFullScreenImage(path, alt, nil)
-			lastLevel = unknown_level
-			nodes.RemoveChild(node)
+		if isBlankNode(node) {
 			continue
 		}
 
 		c := this.checkNewChapter(node)
+
+		if path, alt := this.checkFullScreenImage(node); len(path) > 0 {
+			this.saveChapter(root, chapters)
+			body = resetBody(body)
+			chapters = nil
+			lastLevel = unknown_level
+			this.saveFullScreenImage(path, alt, c)
+			continue
+		}
+
 		if c == nil {
 			lastLevel = unknown_level
-			nodes.RemoveChild(node)
 			body.AppendChild(node)
 			continue
 		}
@@ -237,12 +266,9 @@ func (this *EpubMaker) splitChapter() error {
 		// chapter, and there's no text (only chapter names), so merge it into
 		// last chapter
 		if c.Level <= this.split && c.Level <= lastLevel {
-			if body.FirstChild != nil {
-				this.saveChapter(root, chapters)
-				chapters = make([]Chapter, 0)
-				body = resetBody(body)
-			}
-			title.Data = c.Title
+			this.saveChapter(root, chapters)
+			body = resetBody(body)
+			chapters = nil
 			lastLevel = c.Level
 		}
 
@@ -251,31 +277,35 @@ func (this *EpubMaker) splitChapter() error {
 			chapters = append(chapters, *c)
 		}
 
-		nodes.RemoveChild(node)
 		body.AppendChild(node)
 	}
 
-	if body.FirstChild != nil {
-		this.saveChapter(root, chapters)
-	}
-
+	this.saveChapter(root, chapters)
 	return nil
 }
 
 func resetBody(body *html.Node) *html.Node {
 	nb := cloneNode(body)
-	body.Parent.InsertBefore(nb, body)
+	body.Parent.AppendChild(nb)
 	body.Parent.RemoveChild(body)
 	return nb
 }
 
-func (this *EpubMaker) saveChapter(root *html.Node, chapters []Chapter) error {
-	buf := new(bytes.Buffer)
-	if e := html.Render(buf, root); e != nil {
-		return e
+func (this *EpubMaker) saveFullScreenImage(path, alt string, c *Chapter) {
+	chapters := make([]Chapter, 0)
+	if c != nil && c.Level > 0 && c.Level <= this.toc && len(c.Title) > 0 {
+		chapters = append(chapters, *c)
 	}
-	this.book.AddChapter(chapters, buf.Bytes())
-	return nil
+	this.book.AddFullScreenImage(path, alt, chapters)
+}
+
+func (this *EpubMaker) saveChapter(root *html.Node, chapters []Chapter) {
+	// only save if there are something in this chapter
+	if root.LastChild.LastChild.FirstChild != nil {
+		buf := new(bytes.Buffer)
+		html.Render(buf, root)
+		this.book.AddChapter(chapters, buf.Bytes())
+	}
 }
 
 func (this *EpubMaker) writeLog(msg string) {
@@ -304,10 +334,10 @@ func (this *EpubMaker) loadConfig() error {
 		this.writeLog("option 'AtLevel' is invalid, will use default value 1.")
 		this.split = 1
 	}
-	this.bydiv = cfg.GetInt("/split/ByDiv", 0)
-	if this.bydiv < 0 || this.bydiv > lowest_level {
-		this.writeLog("option 'ByDiv' is invalid, will use default value 0.")
-		this.bydiv = 0
+	this.by_header = cfg.GetInt("/split/ByHeader", 1)
+	if this.by_header < 1 || this.by_header > lowest_level {
+		this.writeLog("option 'ByHeader' is invalid, will use default value 1.")
+		this.by_header = 1
 	}
 	this.output_path = cfg.GetString("/output/path", "")
 
@@ -343,16 +373,19 @@ func (this *EpubMaker) Process(folder VirtualFolder, duokan bool) error {
 	this.book = NewEpub(duokan)
 
 	if e := this.loadConfig(); e != nil {
+		this.writeLog(e.Error())
 		this.writeLog("failed to open configuration file.")
 		return e
 	}
 
 	if e := this.splitChapter(); e != nil {
+		this.writeLog(e.Error())
 		this.writeLog("failed to add chapters to book.")
 		return e
 	}
 
 	if e := this.addFilesToBook(); e != nil {
+		this.writeLog(e.Error())
 		this.writeLog("failed to add files to book.")
 		return e
 	}

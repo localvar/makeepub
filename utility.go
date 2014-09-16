@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"code.google.com/p/go.net/html"
+	"code.google.com/p/go.net/html/atom"
 )
 
 func removeUtf8Bom(data []byte) []byte {
@@ -32,15 +33,24 @@ func isBlankNode(node *html.Node) bool {
 	return len(strings.Trim(node.Data, "\t\n\r ")) == 0
 }
 
-func findChildNode(parent *html.Node, name string) *html.Node {
+func findDirectChild(parent *html.Node, a atom.Atom) *html.Node {
+	for node := parent.FirstChild; node != nil; node = node.NextSibling {
+		if node.Type == html.ElementNode && node.DataAtom == a {
+			return node
+		}
+	}
+	return nil
+}
+
+func findChild(parent *html.Node, a atom.Atom) *html.Node {
 	for node := parent.FirstChild; node != nil; node = node.NextSibling {
 		if node.Type != html.ElementNode {
 			continue
 		}
-		if node.Data == name {
+		if node.DataAtom == a {
 			return node
 		}
-		if n := findChildNode(node, name); n != nil {
+		if n := findChild(node, a); n != nil {
 			return n
 		}
 	}

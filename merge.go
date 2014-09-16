@@ -26,7 +26,7 @@ func mergeHtml(folder VirtualFolder, names []string) []byte {
 			logger.Fatalf("error parsing '%s'.\n", name)
 		}
 
-		b := findChild(doc, atom.Body)
+		b := findFirstChild(doc, atom.Body)
 		if b == nil {
 			logger.Fatalf("'%s' has no 'body' element.\n", name)
 		}

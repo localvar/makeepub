@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"unicode"
 
 	"code.google.com/p/go.net/html"
 	"code.google.com/p/go.net/html/atom"
@@ -30,10 +31,11 @@ func isBlankNode(node *html.Node) bool {
 	if node.Type != html.TextNode {
 		return false
 	}
-	return len(strings.Trim(node.Data, "\t\n\r ")) == 0
+	isNonSpace := func(r rune) bool { return !unicode.IsSpace(r) }
+	return strings.IndexFunc(node.Data, isNonSpace) == -1
 }
 
-func findDirectChild(parent *html.Node, a atom.Atom) *html.Node {
+func findFirstDirectChild(parent *html.Node, a atom.Atom) *html.Node {
 	for node := parent.FirstChild; node != nil; node = node.NextSibling {
 		if node.Type == html.ElementNode && node.DataAtom == a {
 			return node
@@ -42,7 +44,16 @@ func findDirectChild(parent *html.Node, a atom.Atom) *html.Node {
 	return nil
 }
 
-func findChild(parent *html.Node, a atom.Atom) *html.Node {
+func findDirectChildren(parent *html.Node, a atom.Atom) (result []*html.Node) {
+	for node := parent.FirstChild; node != nil; node = node.NextSibling {
+		if node.Type == html.ElementNode && node.DataAtom == a {
+			result = append(result, node)
+		}
+	}
+	return
+}
+
+func findFirstChild(parent *html.Node, a atom.Atom) *html.Node {
 	for node := parent.FirstChild; node != nil; node = node.NextSibling {
 		if node.Type != html.ElementNode {
 			continue
@@ -50,11 +61,26 @@ func findChild(parent *html.Node, a atom.Atom) *html.Node {
 		if node.DataAtom == a {
 			return node
 		}
-		if n := findChild(node, a); n != nil {
+		if n := findFirstChild(node, a); n != nil {
 			return n
 		}
 	}
 	return nil
+}
+
+func findChildren(parent *html.Node, a atom.Atom) (result []*html.Node) {
+	for node := parent.FirstChild; node != nil; node = node.NextSibling {
+		if node.Type != html.ElementNode {
+			continue
+		}
+		if node.DataAtom == a {
+			result = append(result, node)
+		}
+		if r := findChildren(node, a); len(r) > 0 {
+			result = append(result, r...)
+		}
+	}
+	return
 }
 
 func findAttribute(node *html.Node, name string) *html.Attribute {

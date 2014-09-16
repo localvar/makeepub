@@ -387,7 +387,7 @@ func (this *Epub) generateTocNcx() []byte {
 		this.Author(),
 	)
 
-	depth, playorder := 0, 1
+	depth, playorder := 0, 0
 	for _, f := range this.files {
 		if (f.Attr & epub_CONTENT_FILE) == 0 {
 			continue
@@ -443,7 +443,7 @@ func (this *Epub) generateNavXhtml() []byte {
 		this.Name(),
 	)
 
-	depth, playorder := 0, 1
+	depth, playorder := 0, 0
 	for _, f := range this.files {
 		if (f.Attr & epub_CONTENT_FILE) == 0 {
 			continue

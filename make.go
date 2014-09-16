@@ -37,6 +37,7 @@ type EpubMaker struct {
 	by_header   int
 	body        *html.Node // 'body' element of the original html
 	skip        bool       // skip next header (<h1>,<h2>...)?
+	blank       bool       // current chapter is blank?
 }
 
 func NewEpubMaker(logger *log.Logger) *EpubMaker {
@@ -54,35 +55,49 @@ func (this *EpubMaker) parseBook() (*html.Node, error) {
 		return root, e
 	}
 
-	e = fmt.Errorf("invalid 'book.html'")
+	e = fmt.Errorf("structure of 'book.html' is invalid.")
 	if root.Type != html.DocumentNode {
 		return root, e
 	}
 
-	Html := findDirectChild(root, atom.Html)
+	var Html *html.Node = nil
+	for node := root.FirstChild; node != nil; node = node.NextSibling {
+		if node.Type != html.ElementNode {
+			continue
+		}
+		if node.DataAtom != atom.Html || Html != nil {
+			return root, e
+		}
+		Html = node
+	}
 	if Html == nil {
 		return root, e
 	}
 
-	// remove any element after 'html', make sure 'html' is the last
-	// child of 'root'
-	for node := Html.NextSibling; node != nil; node = Html.NextSibling {
-		root.RemoveChild(node)
+	var head *html.Node = nil
+	var body *html.Node = nil
+	for node := Html.FirstChild; node != nil; node = node.NextSibling {
+		if node.Type != html.ElementNode {
+			continue
+		}
+		if node.DataAtom == atom.Head {
+			if head != nil {
+				return root, e
+			}
+			head = node
+		} else if node.DataAtom == atom.Body {
+			if body != nil {
+				return root, e
+			}
+			body = node
+		} else {
+			return root, e
+		}
 	}
 
-	head := findDirectChild(Html, atom.Head)
-	body := findDirectChild(Html, atom.Body)
 	if head == nil || body == nil {
 		return root, e
 	}
-
-	// make sure 'head' is the first child of 'html' and 'body' is the last
-	// child, and remove all other children if exist
-	for node := Html.FirstChild; node != nil; node = Html.FirstChild {
-		Html.RemoveChild(node)
-	}
-	Html.AppendChild(head)
-	Html.AppendChild(body)
 
 	return root, nil
 }
@@ -227,13 +242,11 @@ func (this *EpubMaker) checkFullScreenImage(node *html.Node) (string, string) {
 	return "", ""
 }
 
-func (this *EpubMaker) splitChapter() error {
-	root, e := this.parseBook()
-	if e != nil {
-		return e
-	}
+func (this *EpubMaker) splitChapter(root *html.Node) {
+	this.body = findFirstDirectChild(root, atom.Html)
+	this.body = findFirstDirectChild(this.body, atom.Body)
+	this.blank = true
 
-	this.body = root.LastChild.LastChild
 	body := resetBody(this.body)
 	chapters := make([]Chapter, 0)
 	lastLevel := unknown_level
@@ -242,6 +255,7 @@ func (this *EpubMaker) splitChapter() error {
 		this.body.RemoveChild(node)
 
 		if isBlankNode(node) {
+			body.AppendChild(node)
 			continue
 		}
 
@@ -259,6 +273,7 @@ func (this *EpubMaker) splitChapter() error {
 		if c == nil {
 			lastLevel = unknown_level
 			body.AppendChild(node)
+			this.blank = false
 			continue
 		}
 
@@ -278,10 +293,10 @@ func (this *EpubMaker) splitChapter() error {
 		}
 
 		body.AppendChild(node)
+		this.blank = false
 	}
 
 	this.saveChapter(root, chapters)
-	return nil
 }
 
 func resetBody(body *html.Node) *html.Node {
@@ -300,11 +315,11 @@ func (this *EpubMaker) saveFullScreenImage(path, alt string, c *Chapter) {
 }
 
 func (this *EpubMaker) saveChapter(root *html.Node, chapters []Chapter) {
-	// only save if there are something in this chapter
-	if root.LastChild.LastChild.FirstChild != nil {
+	if !this.blank {
 		buf := new(bytes.Buffer)
 		html.Render(buf, root)
 		this.book.AddChapter(chapters, buf.Bytes())
+		this.blank = true
 	}
 }
 
@@ -378,10 +393,12 @@ func (this *EpubMaker) Process(folder VirtualFolder, duokan bool) error {
 		return e
 	}
 
-	if e := this.splitChapter(); e != nil {
+	if root, e := this.parseBook(); e != nil {
 		this.writeLog(e.Error())
-		this.writeLog("failed to add chapters to book.")
+		this.writeLog("failed to parse 'book.html'.")
 		return e
+	} else {
+		this.splitChapter(root)
 	}
 
 	if e := this.addFilesToBook(); e != nil {

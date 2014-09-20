@@ -164,6 +164,11 @@ func (this *EpubMaker) checkChapterNode(node *html.Node) *Chapter {
 		return &Chapter{Level: level, Title: title}
 	}
 
+	// if this is a 'header' element, use its own 'level' & 'title'
+	if c := checkHeaderNode(node); c != nil {
+		return c
+	}
+
 	// try to find next 'header' element for level & title
 	for n := this.body.FirstChild; n != nil; n = n.NextSibling {
 		if n.Type != html.ElementNode {
@@ -200,8 +205,8 @@ func (this *EpubMaker) checkNewChapter(node *html.Node) *Chapter {
 		}
 	}
 
-	// only chapters in TOC need 'id' to generate Link
-	if c.Level <= this.toc {
+	// only chapters in TOC need a Link
+	if c.Level > 0 && c.Level <= this.toc {
 		id := findAttribute(node, "id")
 		if id == nil {
 			node.Attr = append(node.Attr, html.Attribute{Key: "id"})

@@ -2,9 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -14,12 +14,6 @@ type Config struct {
 }
 
 func ParseIni(reader io.Reader) (*Config, error) {
-	var (
-		reComment = regexp.MustCompile("^[ \t]*#.*$")
-		reSection = regexp.MustCompile("^[ \t]*\\[([^\\]]+)\\][ \t]*$")
-		reKey     = regexp.MustCompile("^([^=]*)=[ \t]*([^ \t]*)[ \t]*$")
-	)
-
 	section, lastKey, cfg := "/", "", make(map[string]string)
 	firstLine, scanner := true, bufio.NewScanner(reader)
 
@@ -30,26 +24,45 @@ func ParseIni(reader io.Reader) (*Config, error) {
 			firstLine = false
 		}
 
-		if reComment.Match(s) {
+		s = bytes.TrimSpace(s)
+		if len(s) == 0 || s[0] == '#' { // empty or comment
 			continue
 		}
 
-		m := reSection.FindSubmatch(s)
-		if m != nil {
-			section = "/" + string(m[1])
+		if s[0] == '[' && s[len(s)-1] == ']' { // section
+			s = bytes.TrimSpace(s[1 : len(s)-1])
+			if len(s) >= 0 {
+				section = "/" + string(bytes.ToLower(s))
+			}
 			continue
 		}
 
-		if m = reKey.FindSubmatch(s); m == nil {
-			continue
+		k, v := "", ""
+		if i := bytes.IndexByte(s, '='); i != -1 {
+			k = string(bytes.ToLower(bytes.TrimSpace(s[:i])))
+			v = string(bytes.TrimSpace(s[i+1:]))
 		}
 
-		k := strings.ToLower(strings.TrimSpace(string(m[1])))
 		if len(k) > 0 {
 			lastKey = section + "/" + k
-			cfg[lastKey] = string(m[2])
-		} else if len(lastKey) > 0 {
-			cfg[lastKey] = cfg[lastKey] + string(m[2])
+			cfg[lastKey] = v
+			continue
+		} else if len(lastKey) == 0 {
+			continue
+		}
+
+		c, lv := byte(128), cfg[lastKey]
+		if len(lv) > 0 {
+			c = lv[len(lv)-1]
+		}
+
+		if len(v) == 0 { // empty value means a new line
+			cfg[lastKey] = lv + "\n"
+		} else if c < 128 && c != '-' && v[0] < 128 { // need a white space?
+			// not good enough, but should be ok in most cases
+			cfg[lastKey] = lv + " " + v
+		} else {
+			cfg[lastKey] = lv + v
 		}
 	}
 

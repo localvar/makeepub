@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
+	"html"
 	"os"
 	"path/filepath"
 	"strings"
@@ -284,27 +285,27 @@ func (this *Epub) generateContentOpf(version int) []byte {
 		"		<dc:title>%s</dc:title>\n"+
 		"		<dc:language>%s</dc:language>\n"+
 		"		<meta name=\"cover\" content=\"%s\"/>\n",
-		this.Id(),
-		this.Name(),
-		this.Language(),
+		html.EscapeString(this.Id()),
+		html.EscapeString(this.Name()),
+		html.EscapeString(this.Language()),
 		this.cover,
 	)
 
 	if version == EPUB_VERSION_200 {
-		fmt.Fprintf(buf, "		<dc:creator opf:role=\"aut\">%s</dc:creator>\n", this.Author())
+		fmt.Fprintf(buf, "		<dc:creator opf:role=\"aut\">%s</dc:creator>\n", html.EscapeString(this.Author()))
 		fmt.Fprintf(buf, "		<dc:date>%s</dc:date>\n", time.Now().UTC().Format(time.RFC3339))
 	} else {
-		fmt.Fprintf(buf, "		<dc:creator id=\"creator\">%s</dc:creator>\n", this.Author())
+		fmt.Fprintf(buf, "		<dc:creator id=\"creator\">%s</dc:creator>\n", html.EscapeString(this.Author()))
 		buf.WriteString("		<meta refines=\"#creator\" property=\"role\" scheme=\"marc:relators\" id=\"role\">aut</meta>\n")
 		fmt.Fprintf(buf, "		<meta property=\"dcterms:modified\">%s</meta>\n", time.Now().UTC().Format(time.RFC3339))
 	}
 
 	if len(this.Publisher()) > 0 {
-		fmt.Fprintf(buf, "<dc:publisher>%s</dc:publisher>\n", this.Publisher())
+		fmt.Fprintf(buf, "		<dc:publisher>%s</dc:publisher>\n", html.EscapeString(this.Publisher()))
 	}
 
 	if len(this.Description()) > 0 {
-		fmt.Fprintf(buf, "<dc:description>%s</dc:description>\n", this.Description())
+		fmt.Fprintf(buf, "		<dc:description>%s</dc:description>\n", html.EscapeString(this.Description()))
 	}
 
 	buf.WriteString("	</metadata>\n	<manifest>\n")

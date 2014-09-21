@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"io/ioutil"
-	"os"
 	"sort"
 
 	"code.google.com/p/go.net/html"
@@ -75,11 +74,14 @@ func mergeText(folder VirtualFolder, names []string) []byte {
 }
 
 func RunMerge() {
-	CheckCommandLineArgumentCount(4)
+	inpath, outpath := getArg(0, ""), getArg(1, "")
+	if len(inpath) == 0 || len(outpath) == 0 {
+		onCommandLineError()
+	}
 
-	folder, e := OpenVirtualFolder(os.Args[2])
+	folder, e := OpenVirtualFolder(inpath)
 	if e != nil {
-		logger.Fatalln("failed to open input folder.")
+		logger.Fatalf("failed to open '%s'.\n", inpath)
 	}
 
 	names, e := folder.ReadDirNames()
@@ -95,13 +97,13 @@ func RunMerge() {
 	sort.Strings(names)
 
 	var data []byte
-	if os.Args[1][2] == 'h' || os.Args[1][2] == 'H' {
+	if flag := getFlag(0); flag[1] == 'h' || flag[1] == 'H' {
 		data = mergeHtml(folder, names)
 	} else {
 		data = mergeText(folder, names)
 	}
 
-	if e = ioutil.WriteFile(os.Args[3], data, 0666); e != nil {
+	if e = ioutil.WriteFile(outpath, data, 0666); e != nil {
 		logger.Fatalln("failed to write to output file.\n")
 	}
 }

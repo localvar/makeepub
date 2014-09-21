@@ -8,20 +8,22 @@ import (
 )
 
 func RunExtract() {
-	CheckCommandLineArgumentCount(4)
-
-	zrc, e := zip.OpenReader(os.Args[2])
+	inpath, outpath := getArg(0, ""), getArg(1, "")
+	if len(inpath) == 0 || len(outpath) == 0 {
+		onCommandLineError()
+	}
+	zrc, e := zip.OpenReader(inpath)
 	if e != nil {
-		logger.Fatalln("failed to open input file.")
+		logger.Fatalf("failed to open '%s'.\n", inpath)
 	}
 	defer zrc.Close()
 
-	if e = os.MkdirAll(os.Args[3], os.ModeDir|0666); e != nil {
+	if e = os.MkdirAll(outpath, os.ModeDir|0666); e != nil {
 		logger.Fatalln("failed to create output folder.")
 	}
 
 	for _, zf := range zrc.File {
-		path := filepath.Join(os.Args[3], zf.Name)
+		path := filepath.Join(outpath, zf.Name)
 
 		// skip folders, if it is not empty, will be created during file creation
 		if zf.FileInfo().IsDir() {

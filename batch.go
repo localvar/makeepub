@@ -22,10 +22,10 @@ func runTask(input string, outdir string) {
 		maker  = NewEpubMaker(logger)
 		folder VirtualFolder
 		tr     = &taskResult{input: input}
-		duokan = !GetArgumentFlagBool(os.Args[2:], "noduokan")
+		duokan = !getFlagBool("noduokan")
 		ver    = EPUB_VERSION_300
 	)
-	if GetArgumentFlagBool(os.Args[2:], "epub2") {
+	if getFlagBool("epub2") {
 		ver = EPUB_VERSION_200
 	}
 	if folder, tr.e = OpenVirtualFolder(input); tr.e != nil {
@@ -70,28 +70,28 @@ func processBatchFolder(f *os.File, outdir string) (count int, e error) {
 }
 
 func RunBatch() {
-	CheckCommandLineArgumentCount(3)
-
-	f, e := os.Open(os.Args[2])
-	if e != nil {
-		logger.Fatalf("failed to open '%s'.\n", os.Args[2])
+	var input *os.File = nil
+	if inpath := getArg(0, ""); len(inpath) == 0 {
+		onCommandLineError()
+	} else if f, e := os.Open(inpath); e != nil {
+		logger.Fatalf("failed to open '%s'.\n", inpath)
+	} else {
+		input = f
 	}
-	defer f.Close()
+	defer input.Close()
 
-	outdir := ""
-	if len(os.Args) > 3 {
-		outdir = os.Args[3]
-	}
+	outpath := getArg(1, "")
 
 	runtime.GOMAXPROCS(runtime.NumCPU() + 1)
 	chTaskResult = make(chan *taskResult)
 	defer close(chTaskResult)
 
 	var count int
-	if fi, _ := f.Stat(); fi.IsDir() {
-		count, e = processBatchFolder(f, outdir)
+	var e error
+	if fi, _ := input.Stat(); fi.IsDir() {
+		count, e = processBatchFolder(input, outpath)
 	} else {
-		count, e = processBatchFile(f, outdir)
+		count, e = processBatchFile(input, outpath)
 	}
 
 	if e != nil && count == 0 {

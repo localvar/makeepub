@@ -377,7 +377,7 @@ func (this *Epub) generateTocNcx() []byte {
 		"		<meta content=\"%d\" name=\"dtb:depth\"/>\n"+
 		"		<meta content=\"0\" name=\"dtb:totalPageCount\"/>\n"+
 		"		<meta content=\"0\" name=\"dtb:maxPageNumber\"/>\n"+
-		"		<meta name=\"builder\" content=\"makeepub\"/>\n"+
+		"		<meta name=\"builder\" content=\"makeepub v"+version+"\"/>\n"+
 		"	</head>\n"+
 		"	<docTitle><text>%s</text></docTitle>\n"+
 		"	<docAuthor><text>%s</text></docAuthor>\n"+

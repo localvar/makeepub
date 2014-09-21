@@ -33,16 +33,19 @@ func packFiles(book *Epub, input string) error {
 }
 
 func RunPack() {
-	CheckCommandLineArgumentCount(4)
+	inpath, outpath := getArg(0, ""), getArg(1, "")
+	if len(inpath) == 0 || len(outpath) == 0 {
+		onCommandLineError()
+	}
 
 	book := NewEpub(false)
 
-	if packFiles(book, os.Args[2]) != nil {
+	if packFiles(book, inpath) != nil {
 		os.Exit(1)
 	}
 
-	if book.Save(os.Args[3], EPUB_VERSION_NONE) != nil {
-		logger.Fatalln("failed to create output file: ", os.Args[3])
+	if book.Save(outpath, EPUB_VERSION_NONE) != nil {
+		logger.Fatalln("failed to create output file: ", outpath)
 	}
 }
 

@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 )
@@ -100,13 +99,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func RunServer() {
-	port := 80
-	if len(os.Args) > 2 {
-		port += 0
-		port, e := strconv.Atoi(os.Args[2])
-		if e != nil || port <= 0 || port > 65535 {
-			logger.Fatalln("invalid port number.")
-		}
+	port, e := strconv.Atoi(getArg(0, "80"))
+	if e != nil || port <= 0 || port > 65535 {
+		logger.Fatalln("invalid port number.")
 	}
 	fmt.Printf("Web Server started, listen at port '%d'\n", port)
 	fmt.Println("Press 'Ctrl + C' to exit.")

@@ -314,6 +314,7 @@ func resetBody(body *html.Node) *html.Node {
 func (this *EpubMaker) saveFullScreenImage(path, alt string, c *Chapter) {
 	chapters := make([]Chapter, 0)
 	if c != nil && c.Level > 0 && c.Level <= this.toc && len(c.Title) > 0 {
+		c.Link = ""
 		chapters = append(chapters, *c)
 	}
 	this.book.AddFullScreenImage(path, alt, chapters)
@@ -355,7 +356,7 @@ func (this *EpubMaker) loadConfig() error {
 		this.split = 1
 	}
 	this.by_header = cfg.GetInt("/split/ByHeader", 1)
-	if this.by_header < 1 || this.by_header > lowest_level {
+	if this.by_header < 1 || this.by_header > (lowest_level+1) {
 		this.writeLog("option 'ByHeader' is invalid, will use default value 1.")
 		this.by_header = 1
 	}
@@ -449,24 +450,21 @@ func (this *EpubMaker) GetResult(ver int) ([]byte, string, error) {
 }
 
 func RunMake() {
-	var outdir string
-	if len(os.Args) > 2 {
-		outdir = os.Args[2]
-	}
-
-	duokan := !GetArgumentFlagBool(os.Args[1:], "noduokan")
+	duokan := !getFlagBool("noduokan")
 	ver := EPUB_VERSION_300
-	if GetArgumentFlagBool(os.Args[1:], "epub2") {
+	if getFlagBool("epub2") {
 		ver = EPUB_VERSION_200
 	}
 
 	maker := NewEpubMaker(logger)
 
-	if folder, e := OpenVirtualFolder(os.Args[1]); e != nil {
-		logger.Fatalf("%s: failed to open source folder/file.\n", os.Args[1])
+	if inpath := getArg(0, ""); len(inpath) == 0 {
+		onCommandLineError()
+	} else if folder, e := OpenVirtualFolder(inpath); e != nil {
+		logger.Fatalf("%s: failed to open source folder/file.\n", inpath)
 	} else if maker.Process(folder, duokan) != nil {
 		os.Exit(1)
-	} else if maker.SaveTo(outdir, ver) != nil {
+	} else if maker.SaveTo(getArg(1, ""), ver) != nil {
 		os.Exit(1)
 	}
 }

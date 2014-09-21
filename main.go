@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const version = "1.0.0"
+const version = "1.1.0"
 
 func showUsage() {
 	usage := `Create/Batch Create/Pack/Extract EPUB file(s). Merge HTML/Text files.
@@ -45,19 +45,43 @@ func onCommandLineError() {
 	logger.Fatalln("invalid command line. see 'makeepub -?'")
 }
 
-func CheckCommandLineArgumentCount(minArg int) {
-	if len(os.Args) < minArg {
-		onCommandLineError()
+func getArg(index int, dflt string) string {
+	count := 0
+	for _, arg := range os.Args[1:] {
+		if !isFlag(arg) {
+			if count == index {
+				return arg
+			}
+			count++
+		}
 	}
+	return dflt
 }
 
-func GetArgumentFlagBool(args []string, flag string) bool {
-	flag = strings.ToLower(flag)
-	for _, arg := range args {
-		if arg[0] != '-' && arg[0] != '/' {
-			continue
+func getFlag(index int) string {
+	count := 0
+	for _, arg := range os.Args[1:] {
+		if isFlag(arg) {
+			if count == index {
+				return arg[1:]
+			}
+			count++
 		}
-		if strings.ToLower(arg[1:]) == flag {
+	}
+	return ""
+}
+
+func isFlag(arg string) bool {
+	if os.PathSeparator == '/' {
+		return arg[0] == '-'
+	}
+	return arg[0] == '-' || arg[0] == '/'
+}
+
+func getFlagBool(flag string) bool {
+	flag = strings.ToLower(flag)
+	for _, arg := range os.Args[1:] {
+		if isFlag(arg) && strings.ToLower(arg[1:]) == flag {
 			return true
 		}
 	}
@@ -84,7 +108,7 @@ func AddCommandHandler(cmd string, handler func()) {
 }
 
 func findCommandHandler(cmd string) func() {
-	if cmd[0] != '-' && cmd[0] != '/' {
+	if !isFlag(cmd) {
 		return RunMake
 	}
 	cmd = strings.ToLower(cmd[1:])
@@ -98,7 +122,9 @@ func findCommandHandler(cmd string) func() {
 
 func main() {
 	fmt.Println("makeepub v" + version + ", home page: https://github.com/localvar/makeepub")
-	CheckCommandLineArgumentCount(2)
+	if len(os.Args) < 2 {
+		onCommandLineError()
+	}
 
 	AddCommandHandler("?", showUsage)
 	AddCommandHandler("h", showUsage)

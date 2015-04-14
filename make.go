@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"code.google.com/p/go.net/html"
-	"code.google.com/p/go.net/html/atom"
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 const (

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"unicode"
 
-	"code.google.com/p/go.net/html"
-	"code.google.com/p/go.net/html/atom"
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 func removeUtf8Bom(data []byte) []byte {
